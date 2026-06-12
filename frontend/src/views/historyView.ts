@@ -1,11 +1,17 @@
-import { api, Transaction } from '../api';
+import { api, HistoryEntry } from '../api';
 import { escapeHtml } from '../escape';
 
-function formatAmount(tx: Transaction): string {
-  const val    = tx.debitAmount ?? tx.receiveAmount ?? '0';
-  const scale  = tx.assetScale ?? 2;
-  const amount = (Number(val) / Math.pow(10, scale)).toFixed(scale);
-  return `${amount} ${tx.assetCode}`;
+// Sent payments show what left the wallet (debit, in the sender's currency);
+// received payments show what arrived (receive amount, in the receiver's currency).
+function formatAmount(tx: HistoryEntry): string {
+  if (tx.direction === 'received') {
+    const scale = tx.receiveAssetScale ?? tx.assetScale;
+    const code  = tx.receiveAssetCode  ?? tx.assetCode;
+    const amount = (Number(tx.receiveAmount ?? '0') / 10 ** scale).toFixed(scale);
+    return `+${amount} ${code}`;
+  }
+  const amount = (Number(tx.debitAmount ?? '0') / 10 ** tx.assetScale).toFixed(tx.assetScale);
+  return `−${amount} ${tx.assetCode}`;
 }
 
 function formatDate(ts: string): string {
@@ -30,7 +36,7 @@ function formatStatus(status: string): string {
 export async function renderHistoryView(container: HTMLElement): Promise<void> {
   container.innerHTML = `<div class="card"><p class="muted">Loading history…</p></div>`;
 
-  let history: Transaction[];
+  let history: HistoryEntry[];
   try {
     history = await api.history();
   } catch {
@@ -58,7 +64,7 @@ export async function renderHistoryView(container: HTMLElement): Promise<void> {
                <tr>
                  <th>Date</th>
                  <th>Amount</th>
-                 <th>Recipient</th>
+                 <th>To / From</th>
                  <th>Status</th>
                </tr>
              </thead>
@@ -66,16 +72,16 @@ export async function renderHistoryView(container: HTMLElement): Promise<void> {
                ${history.map(tx => `
                  <tr>
                    <td class="history-date-cell">${formatDate(tx.createdAt)}</td>
-                   <td class="history-amount-cell">${formatAmount(tx)}</td>
+                   <td class="history-amount-cell amount-${tx.direction}">${formatAmount(tx)}</td>
                    <td>
-                     ${tx.recipientId
-                       ? `<a class="history-recip-link" href="#/user/${encodeURIComponent(tx.recipientId)}">
-                            <div class="history-recip-name">${escapeHtml(tx.recipientName ?? '—')}</div>
-                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.receiverWalletAddress))}</div>
+                     ${tx.counterpartyId
+                       ? `<a class="history-recip-link" href="#/user/${encodeURIComponent(tx.counterpartyId)}">
+                            <div class="history-recip-name">${escapeHtml(tx.counterpartyName ?? '—')}</div>
+                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.counterpartyWallet))}</div>
                           </a>`
                        : `<div>
-                            <div class="history-recip-name">${escapeHtml(tx.recipientName ?? '—')}</div>
-                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.receiverWalletAddress))}</div>
+                            <div class="history-recip-name">${escapeHtml(tx.counterpartyName ?? '—')}</div>
+                            <div class="history-recip-pointer">${escapeHtml(formatPointer(tx.counterpartyWallet))}</div>
                           </div>`
                      }
                    </td>
@@ -93,7 +99,7 @@ export async function renderHistoryView(container: HTMLElement): Promise<void> {
     <div class="history-page">
       <div class="history-page-header">
         <h2 class="history-page-title">Transaction history</h2>
-        <p class="history-page-sub">Your sent payments, most recent first.</p>
+        <p class="history-page-sub">Payments you've sent and received, most recent first.</p>
       </div>
       ${tableHtml}
     </div>

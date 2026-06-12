@@ -9,6 +9,21 @@ function initials(name: string): string {
     .join('');
 }
 
+function avatarHtml(result: UserSearchResult, sizeClass: string): string {
+  return result.avatar
+    ? `<img class="${sizeClass}" src="${escapeHtml(result.avatar)}" alt="${escapeHtml(result.displayName)}" />`
+    : `<div class="${sizeClass} ${sizeClass}-placeholder">${escapeHtml(initials(result.displayName))}</div>`;
+}
+
+// Module state: survives view re-renders, so the chosen recipient is still
+// selected when the user comes back from a profile page via Back / Send Money.
+let selectedRecipient: UserSearchResult | null = null;
+
+// Pre-select (or clear, with null) the recipient for the next Send view.
+export function presetRecipient(user: UserSearchResult | null): void {
+  selectedRecipient = user;
+}
+
 export function renderQuoteView(
   container: HTMLElement,
   user: User,
@@ -123,12 +138,8 @@ export function renderQuoteView(
   }
 
   function renderRecipientCard(result: UserSearchResult, currency: string | null): void {
-    const avatarEl = result.avatar
-      ? `<img class="recipient-avatar" src="${escapeHtml(result.avatar)}" alt="${escapeHtml(result.displayName)}" />`
-      : `<div class="recipient-avatar-placeholder">${escapeHtml(initials(result.displayName))}</div>`;
-
     receiverDisplay.innerHTML = `
-      ${avatarEl}
+      ${avatarHtml(result, 'recipient-avatar')}
       <div class="recipient-info">
         <span class="recipient-name">${escapeHtml(result.displayName)}</span>
         <span class="recipient-wallet">${escapeHtml(result.walletAddress ?? 'no wallet')}</span>
@@ -140,6 +151,7 @@ export function renderQuoteView(
   }
 
   async function selectUser(result: UserSearchResult): Promise<void> {
+    selectedRecipient   = result;
     receiverInput.value = result.walletAddress ?? '';
     resultsList.hidden  = true;
     searchInput.value   = result.displayName;
@@ -186,10 +198,17 @@ export function renderQuoteView(
           const li = document.createElement('li');
           li.className = 'search-result-item';
           li.innerHTML = `
-            <span class="search-result-main">${escapeHtml(r.displayName)}${r.walletAddress ? ` — ${escapeHtml(r.walletAddress)}` : ' (no wallet)'}</span>
-            <a class="search-result-profile" href="#/user/${r.id}">Profile</a>
+            ${avatarHtml(r, 'search-result-avatar')}
+            <span class="search-result-main">
+              <span class="search-result-name">${escapeHtml(r.displayName)}</span>
+              <span class="search-result-pointer">${r.walletAddress ? escapeHtml(r.walletAddress) : 'no wallet'}</span>
+            </span>
+            <a class="search-result-profile" href="#/user/${encodeURIComponent(r.id)}">Profile</a>
           `;
-          li.querySelector('.search-result-main')!.addEventListener('click', () => selectUser(r));
+          li.addEventListener('click', (e) => {
+            if ((e.target as Element).closest('.search-result-profile')) return; // let the link navigate
+            selectUser(r);
+          });
           resultsList.appendChild(li);
         });
       }
@@ -205,6 +224,9 @@ export function renderQuoteView(
 
   searchBtn.addEventListener('click', doSearch);
   searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+
+  // Restore the recipient chosen before navigating away (e.g. to their profile)
+  if (selectedRecipient) void selectUser(selectedRecipient);
 
   // Close the dropdown when clicking outside. The listener removes itself once
   // this view has been replaced, so re-renders don't pile up stale handlers.

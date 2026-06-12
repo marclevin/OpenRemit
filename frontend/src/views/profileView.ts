@@ -1,6 +1,7 @@
 import { api, User } from '../api';
 import { clearToken } from '../auth';
 import { escapeHtml } from '../escape';
+import { presetRecipient } from './quoteView';
 
 export async function renderProfileView(container: HTMLElement): Promise<void> {
   container.innerHTML = `<div class="card"><p class="muted">Loading profile…</p></div>`;
@@ -133,6 +134,7 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
   // Logout
   container.querySelector('#logout-btn')!.addEventListener('click', () => {
     clearToken();
+    presetRecipient(null); // don't leak the selection into the next session
     window.location.hash = '#/';
   });
 }

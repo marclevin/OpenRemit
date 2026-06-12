@@ -470,12 +470,42 @@ code {
 }
 .search-result-item:hover { background: var(--color-primary-tint); }
 
+.search-result-avatar {
+  width:         32px;
+  height:        32px;
+  border-radius: 50%;
+  object-fit:    cover;
+  flex-shrink:   0;
+}
+.search-result-avatar-placeholder {
+  background:      var(--color-primary);
+  color:           #fff;
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  font-size:       0.75rem;
+  font-weight:     700;
+}
+
 .search-result-main {
-  flex:          1;
-  min-width:     0;
+  flex:           1;
+  min-width:      0;
+  display:        flex;
+  flex-direction: column;
+  gap:            0.1rem;
+}
+.search-result-name {
+  font-weight:   600;
+  white-space:   nowrap;
   overflow:      hidden;
   text-overflow: ellipsis;
+}
+.search-result-pointer {
+  font-size:     0.75rem;
+  color:         var(--color-muted);
   white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
 }
 
 .search-result-profile {
@@ -964,12 +994,15 @@ details[open] > .tx-details-toggle::before { transform: rotate(90deg); }
   white-space: nowrap;
 }
 
-/* Amount — bold, tabular figures */
+/* Amount — bold, tabular figures, coloured by direction
+   (same palette as the sent/received badges on profile pages) */
 .history-amount-cell {
   font-weight:          600;
   font-variant-numeric: tabular-nums;
   white-space:          nowrap;
 }
+.history-amount-cell.amount-sent     { color: var(--color-danger); }
+.history-amount-cell.amount-received { color: var(--color-success); }
 
 /* Recipient — stacked name + pointer */
 .history-recip-name {
@@ -988,11 +1021,12 @@ details[open] > .tx-details-toggle::before { transform: rotate(90deg); }
   line-height: 1.4;
 }
 
-/* Status badge — allow wrapping for AWAITING GRANT */
+/* Status badge — sized to stay inside its fixed-width column, so the
+   row hover background always covers it */
 .history-card .status-badge {
-  white-space: normal;
-  line-height: 1.3;
-  text-align:  center;
+  white-space: nowrap;
+  font-size:   0.6875rem;
+  padding:     0.15rem 0.5rem;
 }
 
 /* Empty state */

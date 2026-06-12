@@ -50,6 +50,29 @@ export interface Transaction {
   recipientId?:          string | null;
 }
 
+/** One row of /api/remit/history — a payment the user sent or received. */
+export interface HistoryEntry {
+  id:                    string;
+  status:                'PENDING' | 'AWAITING_GRANT' | 'COMPLETED' | 'FAILED';
+  paymentType:           PaymentType;
+  direction:             'sent' | 'received';
+  senderWalletAddress:   string;
+  receiverWalletAddress: string;
+  debitAmount:           string | null;
+  receiveAmount:         string | null;
+  assetCode:             string;
+  assetScale:            number;
+  receiveAssetCode:      string | null;
+  receiveAssetScale:     number | null;
+  outgoingPaymentUrl:    string | null;
+  errorMessage:          string | null;
+  createdAt:             string;
+  // The other side of the payment (an OpenRemit user, when their wallet is known)
+  counterpartyName:      string | null;
+  counterpartyId:        string | null;
+  counterpartyWallet:    string;
+}
+
 export interface User {
   id:            string;
   displayName:   string;
@@ -159,5 +182,5 @@ export const api = {
   consent: (transactionId: string) =>
     post<{ interactUrl: string }>('/api/remit/consent', { transactionId }, true),
   status:  (id: string) => get<Transaction>(`/api/remit/status/${id}`),
-  history: () => get<Transaction[]>('/api/remit/history', true),
+  history: () => get<HistoryEntry[]>('/api/remit/history', true),
 };

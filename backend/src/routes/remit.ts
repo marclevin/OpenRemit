@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { eq, desc } from 'drizzle-orm';
+import { eq, ne, and, desc } from 'drizzle-orm';
 import { isPendingGrant } from '@interledger/open-payments';
 import { db } from '../db';
 import { transactions, users } from '../db/schema';
@@ -301,34 +301,74 @@ remitRouter.get('/status/:id', async (req, res, next) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/remit/history
+//
+// Bi-directional: payments the user sent, plus payments other OpenRemit users
+// sent to the user's wallet address. Each row carries a `direction` and the
+// counterparty (the other side of the payment), so the frontend can render
+// sent amounts in the sender's currency and received amounts in the receiver's.
+// ─────────────────────────────────────────────────────────────────────────────
 remitRouter.get('/history', requireAuth, async (req, res, next) => {
   try {
-    const rows = await db
-      .select({
-        id:                    transactions.id,
-        status:                transactions.status,
-        paymentType:           transactions.paymentType,
-        senderWalletAddress:   transactions.senderWalletAddress,
-        receiverWalletAddress: transactions.receiverWalletAddress,
-        debitAmount:           transactions.debitAmount,
-        receiveAmount:         transactions.receiveAmount,
-        assetCode:             transactions.assetCode,
-        assetScale:            transactions.assetScale,
-        receiveAssetCode:      transactions.receiveAssetCode,
-        receiveAssetScale:     transactions.receiveAssetScale,
-        outgoingPaymentUrl:    transactions.outgoingPaymentUrl,
-        errorMessage:          transactions.errorMessage,
-        createdAt:             transactions.createdAt,
-        recipientName:         users.displayName,
-        recipientId:           users.id,
-      })
+    const me = req.user!.id;
+
+    const txFields = {
+      id:                    transactions.id,
+      status:                transactions.status,
+      paymentType:           transactions.paymentType,
+      senderWalletAddress:   transactions.senderWalletAddress,
+      receiverWalletAddress: transactions.receiverWalletAddress,
+      debitAmount:           transactions.debitAmount,
+      receiveAmount:         transactions.receiveAmount,
+      assetCode:             transactions.assetCode,
+      assetScale:            transactions.assetScale,
+      receiveAssetCode:      transactions.receiveAssetCode,
+      receiveAssetScale:     transactions.receiveAssetScale,
+      outgoingPaymentUrl:    transactions.outgoingPaymentUrl,
+      errorMessage:          transactions.errorMessage,
+      createdAt:             transactions.createdAt,
+      counterpartyName:      users.displayName,
+      counterpartyId:        users.id,
+    };
+
+    // Payments I sent — counterparty is whoever owns the receiving wallet (if known)
+    const sent = await db
+      .select(txFields)
       .from(transactions)
       .leftJoin(users, eq(users.walletAddress, transactions.receiverWalletAddress))
-      .where(eq(transactions.userId, req.user!.id))
+      .where(eq(transactions.userId, me))
       .orderBy(desc(transactions.createdAt))
       .limit(20)
       .all();
+
+    // Payments other users sent to my wallet address — counterparty is the sender
+    const [meRow] = await db
+      .select({ walletAddress: users.walletAddress })
+      .from(users)
+      .where(eq(users.id, me));
+
+    const received = meRow?.walletAddress
+      ? await db
+          .select(txFields)
+          .from(transactions)
+          .leftJoin(users, eq(users.id, transactions.userId))
+          .where(and(
+            eq(transactions.receiverWalletAddress, meRow.walletAddress),
+            ne(transactions.userId, me),
+          ))
+          .orderBy(desc(transactions.createdAt))
+          .limit(20)
+          .all()
+      : [];
+
+    const rows = [
+      ...sent.map(r => ({ ...r, direction: 'sent' as const, counterpartyWallet: r.receiverWalletAddress })),
+      ...received.map(r => ({ ...r, direction: 'received' as const, counterpartyWallet: r.senderWalletAddress })),
+    ]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 20);
+
     res.json(rows);
   } catch (err) {
     next(err);

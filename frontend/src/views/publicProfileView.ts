@@ -1,5 +1,6 @@
 import { api, PublicProfile, SharedTransaction } from '../api';
 import { escapeHtml } from '../escape';
+import { presetRecipient } from './quoteView';
 
 function initials(name: string): string {
   return name
@@ -88,7 +89,7 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
       </div>`;
 
   const sendBtn = user.walletAddress
-    ? `<a href="#/remit" class="btn btn-africa-primary" style="width:100%;">Send Money →</a>`
+    ? `<a href="#/remit" id="pub-send-btn" class="btn btn-africa-primary" style="width:100%;">Send Money →</a>`
     : '';
 
   container.innerHTML = `
@@ -112,4 +113,7 @@ export async function renderPublicProfileView(container: HTMLElement, userId: st
   `;
 
   container.querySelector('#pub-back-btn')!.addEventListener('click', () => history.back());
+
+  // "Send Money" lands on the Send view with this person already selected
+  container.querySelector('#pub-send-btn')?.addEventListener('click', () => presetRecipient(user));
 }

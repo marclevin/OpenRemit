@@ -6,6 +6,9 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "moduleResolution": "bundler",
     "types": ["vite/client"],
+    // Type-check only — Vite does the actual build. Without this, running
+    // `tsc` scatters .js files through src/ that shadow the .ts sources.
+    "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
