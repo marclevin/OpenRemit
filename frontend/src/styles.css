@@ -332,6 +332,10 @@ select.input {
   background: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color:      var(--color-primary);
 }
+.badge-muted {
+  background: color-mix(in srgb, var(--color-muted) 15%, transparent);
+  color:      var(--color-muted);
+}
 
 /* ─── Spinner ────────────────────────────────────────────── */
 .spinner {
@@ -1181,7 +1185,8 @@ details[open] > .tx-details-toggle::before { transform: rotate(90deg); }
 }
 
 .status-badge.status-declined,
-.status-badge.status-cancelled {
+.status-badge.status-cancelled,
+.status-badge.status-expired {
   background: color-mix(in srgb, var(--color-muted) 15%, transparent);
   color:      var(--color-muted);
 }

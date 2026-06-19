@@ -140,6 +140,7 @@ export async function createQuoteTransaction(input: QuoteFlowInput): Promise<Quo
     receiveAssetScale:     quote.receiveAmount.assetScale,
     incomingPaymentUrl:    incomingPayment.id,
     quoteUrl:              quote.id,
+    quoteExpiresAt:        quote.expiresAt ? new Date(quote.expiresAt) : null,
     userId:                input.userId,
     createdAt:             now,
     updatedAt:             now,

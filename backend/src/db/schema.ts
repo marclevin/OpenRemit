@@ -40,6 +40,11 @@ export const transactions = sqliteTable('transactions', {
   quoteUrl:              text('quote_url'),
   outgoingPaymentUrl:    text('outgoing_payment_url'),
 
+  // When the quote stops being usable. The outgoing payment at /callback needs a
+  // live quote, so a still-PENDING/AWAITING_GRANT row past this is effectively
+  // dead — the frontend surfaces it as "Expired". Nullable: quotes may omit it.
+  quoteExpiresAt:        integer('quote_expires_at', { mode: 'timestamp' }),
+
   // GNAP grant continuation — persisted so the /api/callback handler can resume
   grantContinueUri:      text('grant_continue_uri'),
   grantContinueToken:    text('grant_continue_token'),

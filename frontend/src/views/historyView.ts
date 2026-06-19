@@ -2,6 +2,7 @@ import { api, HistoryEntry } from '../api';
 import { escapeHtml } from '../escape';
 import { toPointer } from '../pointer';
 import { formatMoney } from '../money';
+import { isQuoteExpired } from '../txStatus';
 
 // Sent payments show what left the wallet (debit, in the sender's currency);
 // received payments show what arrived (receive amount, in the receiver's currency).
@@ -26,6 +27,16 @@ function formatStatus(status: string): string {
     AWAITING_GRANT: 'Awaiting',
   };
   return labels[status] ?? status;
+}
+
+// A PENDING/AWAITING_GRANT row whose quote has expired can never complete, so we
+// show it as "Expired" instead of a forever-pending badge (see txStatus.ts).
+function statusBadge(tx: HistoryEntry): string {
+  const expired = isQuoteExpired(tx);
+  const cls     = expired ? 'expired' : tx.status.toLowerCase();
+  const label   = expired ? 'Expired' : formatStatus(tx.status);
+  const title   = expired ? 'The quote expired before this payment was authorised' : '';
+  return `<span class="status-badge status-${cls}" title="${title}">${label}</span>`;
 }
 
 export async function renderHistoryView(container: HTMLElement): Promise<void> {
@@ -81,7 +92,7 @@ export async function renderHistoryView(container: HTMLElement): Promise<void> {
                      }
                    </td>
                    <td>
-                     <span class="status-badge status-${tx.status.toLowerCase()}">${formatStatus(tx.status)}</span>
+                     ${statusBadge(tx)}
                    </td>
                  </tr>
                `).join('')}

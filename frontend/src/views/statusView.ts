@@ -1,6 +1,7 @@
 import { api, Transaction } from '../api';
 import { escapeHtml } from '../escape';
 import { formatMoney } from '../money';
+import { isQuoteExpired } from '../txStatus';
 
 function txDetails(id: string, paymentUrl: string | null): string {
   return `
@@ -43,7 +44,8 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
     try {
       const tx = await api.status(transactionId);
       render(tx);
-      if (tx.status === 'COMPLETED' || tx.status === 'FAILED') return;
+      // Stop on a terminal state, or once the quote has expired (it can no longer complete).
+      if (tx.status === 'COMPLETED' || tx.status === 'FAILED' || isQuoteExpired(tx)) return;
     } catch {
       // keep polling on transient network errors
     }
@@ -100,6 +102,15 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
           <div class="error-msg">${escapeHtml(tx.errorMessage ?? 'An unknown error occurred.')}</div>
           ${txDetails(tx.id, null)}
           <a href="#/remit" class="btn btn-secondary">Try Again</a>
+        </div>
+      `;
+    } else if (isQuoteExpired(tx)) {
+      content.innerHTML = `
+        <div class="status-terminal">
+          <div class="badge badge-muted">Expired</div>
+          <p class="muted">This quote expired before the payment was authorised. Quotes are valid only briefly — start a new payment to get a fresh one.</p>
+          ${txDetails(tx.id, null)}
+          <a href="#/remit" class="btn btn-secondary">Start Over</a>
         </div>
       `;
     } else {

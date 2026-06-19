@@ -27,10 +27,13 @@ export const callbackRouter = Router();
 //   4. Mark the transaction COMPLETED and redirect the browser to the frontend
 // ─────────────────────────────────────────────────────────────────────────────
 callbackRouter.get('/', async (req, res) => {
-  const { interact_ref, transactionId } = req.query as Record<string, string>;
+  // On success the auth server sends `interact_ref`. On rejection it sends
+  // `result=grant_rejected` (and no interact_ref) — that's the user clicking
+  // "Decline" at their wallet's consent page.
+  const { interact_ref, transactionId, result } = req.query as Record<string, string>;
 
-  if (!interact_ref || !transactionId) {
-    return res.status(400).send('Missing interact_ref or transactionId in callback query');
+  if (!transactionId) {
+    return res.status(400).send('Missing transactionId in callback query');
   }
 
   const [tx] = await db
@@ -49,6 +52,25 @@ callbackRouter.get('/', async (req, res) => {
     .from(postUnlocks)
     .where(and(eq(postUnlocks.transactionId, transactionId), eq(postUnlocks.status, 'PENDING')));
   const postSuffix = unlock ? `&post=${unlock.postId}` : '';
+
+  // User declined consent (or the auth server returned no interact_ref): the
+  // grant was rejected, so there's nothing to continue. Mark the payment failed
+  // with a friendly reason and send them back to the app. Any linked ask/unlock
+  // stays PENDING (handled like every other failure), so a retry is possible.
+  if (!interact_ref || result === 'grant_rejected') {
+    await db
+      .update(transactions)
+      .set({
+        status:       'FAILED',
+        errorMessage: result === 'grant_rejected'
+          ? 'Payment declined — you cancelled the authorisation at your wallet.'
+          : 'Authorisation did not complete. Please try the payment again.',
+        updatedAt:    new Date(),
+      })
+      .where(eq(transactions.id, transactionId));
+
+    return res.redirect(`${config.frontendUrl}?status=failed&id=${transactionId}${postSuffix}`);
+  }
 
   try {
     const client = await getClient();

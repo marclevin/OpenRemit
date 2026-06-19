@@ -44,6 +44,8 @@ export interface Transaction {
   receiveAssetCode:      string | null;
   receiveAssetScale:     number | null;
   outgoingPaymentUrl:    string | null;
+  // ISO timestamp the quote stops being usable; null if the quote omitted one.
+  quoteExpiresAt:        string | null;
   errorMessage:          string | null;
   createdAt:             string;
   recipientName:         string | null;
@@ -65,6 +67,8 @@ export interface HistoryEntry {
   receiveAssetCode:      string | null;
   receiveAssetScale:     number | null;
   outgoingPaymentUrl:    string | null;
+  // ISO timestamp the quote stops being usable; null if the quote omitted one.
+  quoteExpiresAt:        string | null;
   errorMessage:          string | null;
   createdAt:             string;
   // The other side of the payment (an OpenRemit user, when their wallet is known)
