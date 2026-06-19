@@ -2,7 +2,7 @@
 
 > A bare-bones, Open Payments remittance template for hackers.
 
-A minimal, fully-functional monorepo that implements the complete Open Payments Send → Receive flow using the [`@interledger/open-payments`](https://github.com/interledger/open-payments) SDK. Built as a hackathon launchpad — every file is intentionally flat and explicit so you can fork, read, and extend without getting lost.
+A minimal, fully-functional monorepo that implements the complete Open Payments Send → Receive flow using the [`@interledger/open-payments`](https://github.com/interledger/open-payments) SDK. Built as a hackathon launchpad.
 
 ---
 
@@ -16,13 +16,14 @@ A minimal, fully-functional monorepo that implements the complete Open Payments 
 ### 1. Clone & install
 
 ```bash
-git clone <repo-url> openremit && cd openremit
+git clone https://github.com/marclevin/OpenRemit.git openremit && cd openremit
 npm install
 ```
 
 ### 2. Get your wallet credentials
 
 You can obtain test wallet credentials from the [Interledger Test Wallet](https://wallet.interledger-test.dev):
+
 1. Create an account in the **Interledger Test Wallet**
    (<https://wallet.interledger-test.dev>) and create one or more **wallet addresses**. For a
    peer-to-peer payment you need a sending and a receiving wallet address; the client wallet
@@ -184,6 +185,7 @@ OpenRemit/
 **SDK Client:** Singleton in `backend/src/lib/openPayments.ts`. `getClient()` returns an authenticated client. `privateKey` is a file path — the SDK reads the `.pem` itself. All payment/quote `create` calls use the wallet's `resourceServer` URL (from `walletAddress.get()`), not the wallet address URL.
 
 **Key SDK patterns (confirmed from working code):**
+
 ```typescript
 const client = await createAuthenticatedClient({ walletAddressUrl, keyId, privateKey: './path.key' });
 const wallet = await client.walletAddress.get({ url: 'https://...' });
@@ -219,10 +221,10 @@ await client.outgoingPayment.create({ url: sendingWallet.resourceServer, accessT
 
 ## Available Scripts
 
-| Command           | Description                                |
-|-------------------|--------------------------------------------|
-| `npm run dev`     | Start backend (:3001) + frontend (:5173)   |
-| `npm run build`   | Build both packages                        |
+| Command           | Description                                               |
+| ----------------- | --------------------------------------------------------- |
+| `npm run dev`     | Start backend (:3001) + frontend (:5173)                  |
+| `npm run build`   | Build both packages                                       |
 | `npm run db:push` | Push schema changes to SQLite (no migration files needed) |
 
 ---
@@ -236,7 +238,9 @@ await client.outgoingPayment.create({ url: sendingWallet.resourceServer, accessT
 3. Run `npm run db:push`, then surface the list in `quoteView.ts` next to search
 
 ### Add recurring payments
+
 In `POST /api/remit/consent`, add an `interval` to the outgoing grant limits:
+
 ```typescript
 limits: {
   debitAmount: { ... },
@@ -245,9 +249,11 @@ limits: {
 ```
 
 ### Swap in a React frontend
+
 Replace `frontend/src/views/*.ts` with React components. The `api.ts` module (typed fetch wrappers) stays unchanged — just import and call `api.quote()`, `api.consent()`, `api.status()` from your components.
 
 ### Deploy to production
+
 1. Set `BACKEND_URL` to your public backend URL so the GNAP callback reaches the internet
 2. Set `FRONTEND_URL` to your public frontend URL
 3. Point `OP_PRIVATE_KEY_PATH` to the key file on your server (or use a secrets manager)
