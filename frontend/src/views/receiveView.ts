@@ -2,10 +2,7 @@ import { api, User, UserSearchResult, WalletInfo, PaymentRequestEntry, PaymentTy
 import { escapeHtml } from '../escape';
 import { toPointer } from '../pointer';
 import { avatarHtml } from '../avatar';
-
-function fmt(value: string, assetCode: string, assetScale: number): string {
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
-}
+import { formatMoney } from '../money';
 
 function formatDate(ts: string): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -20,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 // One row in the "Asks you've sent" list. The counterpart is the payer.
 function outgoingAskHtml(ask: PaymentRequestEntry): string {
-  const amount = fmt(ask.amount, ask.assetCode, ask.assetScale);
+  const amount = formatMoney(ask.amount, ask.assetCode, ask.assetScale);
   const line = ask.paymentType === 'FIXED_SEND'
     ? `You asked <strong>${escapeHtml(ask.counterpartName)}</strong> to send <strong>${amount}</strong>`
     : `You asked <strong>${escapeHtml(ask.counterpartName)}</strong> for <strong>${amount}</strong>`;
@@ -61,8 +58,9 @@ export function renderReceiveView(container: HTMLElement, user: User): void {
 
         <form id="ask-form" class="send-form" novalidate>
           <div class="field">
-            <label>Your Payment Pointer</label>
-            <input type="text" class="input" value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" readonly disabled />
+            <label>Your Payment Pointer 🔒</label>
+            <input type="text" class="input" value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" placeholder="No wallet set yet" readonly disabled aria-readonly="true" />
+            <span class="field-hint">This is your own wallet — change it on your <a href="#/profile">Profile</a> page.</span>
           </div>
 
           <hr class="divider" />

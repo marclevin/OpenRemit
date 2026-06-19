@@ -1,10 +1,6 @@
 import { api, Transaction } from '../api';
 import { escapeHtml } from '../escape';
-
-function fmt(value: string | null, assetCode: string, assetScale: number): string {
-  if (!value) return '—';
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
-}
+import { formatMoney } from '../money';
 
 function txDetails(id: string, paymentUrl: string | null): string {
   return `
@@ -86,11 +82,11 @@ export function renderStatusView(container: HTMLElement, transactionId: string):
             ` : ''}
             <div class="summary-row">
               <span class="label">You sent</span>
-              <span class="value">${fmt(tx.debitAmount, tx.assetCode, tx.assetScale)}</span>
+              <span class="value">${formatMoney(tx.debitAmount, tx.assetCode, tx.assetScale)}</span>
             </div>
             <div class="summary-row">
               <span class="label">They received</span>
-              <span class="value">${fmt(tx.receiveAmount, receiveCode, receiveScale)}</span>
+              <span class="value">${formatMoney(tx.receiveAmount, receiveCode, receiveScale)}</span>
             </div>
           </div>
           ${txDetails(tx.id, tx.outgoingPaymentUrl)}

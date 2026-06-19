@@ -3,6 +3,7 @@ import { escapeHtml } from '../escape';
 import { presetRecipient } from './quoteView';
 import { toPointer } from '../pointer';
 import { avatarHtml } from '../avatar';
+import { formatMoney } from '../money';
 
 function direction(tx: SharedTransaction, otherWallet: string): 'sent' | 'received' {
   return tx.receiverWalletAddress === otherWallet ? 'sent' : 'received';
@@ -15,8 +16,7 @@ function formatAmount(tx: SharedTransaction, dir: 'sent' | 'received'): string {
                                : (tx.receiveAmount ?? tx.debitAmount ?? '0');
   const code  = dir === 'sent' ? tx.assetCode  : (tx.receiveAssetCode  ?? tx.assetCode);
   const scale = dir === 'sent' ? tx.assetScale : (tx.receiveAssetScale ?? tx.assetScale);
-  const amount = (Number(val) / 10 ** scale).toFixed(scale);
-  return `${amount} ${code}`;
+  return formatMoney(val, code, scale);
 }
 
 function formatDate(ts: string): string {

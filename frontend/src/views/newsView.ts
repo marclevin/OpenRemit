@@ -1,10 +1,10 @@
 import { api, NewsPost } from '../api';
 import { escapeHtml } from '../escape';
 import { avatarHtml } from '../avatar';
+import { formatPrice } from '../money';
 
 function priceLabel(post: NewsPost): string {
-  // Price is in major units already; show it with the receiver's currency.
-  return `${Number(post.price).toFixed(post.priceAssetScale)} ${post.priceAssetCode}`;
+  return formatPrice(post.price, post.priceAssetCode, post.priceAssetScale);
 }
 
 function tagHtml(post: NewsPost): string {

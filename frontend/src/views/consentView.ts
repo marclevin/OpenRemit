@@ -1,8 +1,5 @@
 import { api, QuoteResponse } from '../api';
-
-function fmt(value: string, assetCode: string, assetScale: number): string {
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
-}
+import { formatMoney } from '../money';
 
 export function renderConsentView(
   container: HTMLElement,
@@ -17,7 +14,7 @@ export function renderConsentView(
       <div class="summary-row${isFixed ? ' is-fixed' : ''}">
         <span class="label">${label}</span>
         <span class="value-group">
-          <span class="value">${fmt(amount.value, amount.assetCode, amount.assetScale)}</span>
+          <span class="value">${formatMoney(amount.value, amount.assetCode, amount.assetScale)}</span>
           <span class="${isFixed ? 'badge-fixed' : 'badge-calc'}">${isFixed ? 'fixed' : 'calc'}</span>
         </span>
       </div>

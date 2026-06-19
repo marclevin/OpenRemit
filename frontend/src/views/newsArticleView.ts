@@ -2,6 +2,7 @@ import { api, NewsPost } from '../api';
 import { escapeHtml } from '../escape';
 import { toPointer } from '../pointer';
 import { avatarHtml } from '../avatar';
+import { formatMoney, formatPrice } from '../money';
 import { renderConsentView } from './consentView';
 
 /** Outcome carried back from the GNAP callback after the Open Payments fallback. */
@@ -33,12 +34,8 @@ function removeMonetizationLinks(): void {
   document.querySelectorAll('link[rel="monetization"]').forEach((l) => l.remove());
 }
 
-function fmtMinor(value: string, assetCode: string, assetScale: number): string {
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
-}
-
 function priceLabel(post: NewsPost): string {
-  return `${Number(post.price).toFixed(post.priceAssetScale)} ${post.priceAssetCode}`;
+  return formatPrice(post.price, post.priceAssetCode, post.priceAssetScale);
 }
 
 function bodyHtml(body: string): string {
@@ -62,7 +59,7 @@ function receiptHtml(post: NewsPost): string {
       </div>
       <div class="receipt-row">
         <span class="receipt-label">amountSent</span>
-        <span class="receipt-value">${escapeHtml(fmtMinor(amountSent.value, amountSent.assetCode, amountSent.assetScale))}</span>
+        <span class="receipt-value">${escapeHtml(formatMoney(amountSent.value, amountSent.assetCode, amountSent.assetScale))}</span>
       </div>
       <div class="receipt-row">
         <span class="receipt-label">paymentPointer</span>

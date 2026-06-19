@@ -149,6 +149,24 @@ body {
 }
 .input::placeholder { color: var(--color-muted); }
 
+/* Read-only / locked fields (e.g. your own payment pointer — it's set in Profile,
+   not here). Make it visibly un-editable rather than a normal-looking input. */
+.input:disabled,
+.input[readonly] {
+  background:   color-mix(in srgb, var(--color-bg) 60%, transparent);
+  color:        var(--color-muted);
+  border-style: dashed;
+  cursor:       not-allowed;
+  opacity:      1; /* override the browser's default dimming so text stays legible */
+}
+
+/* Small explanatory line beneath a field. */
+.field-hint {
+  font-size: 0.8125rem;
+  color:     var(--color-muted);
+}
+.field-hint a { color: var(--color-primary); }
+
 /* Custom file input */
 .input[type="file"] {
   padding: 0.5rem 0.875rem;

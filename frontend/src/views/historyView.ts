@@ -1,18 +1,17 @@
 import { api, HistoryEntry } from '../api';
 import { escapeHtml } from '../escape';
 import { toPointer } from '../pointer';
+import { formatMoney } from '../money';
 
 // Sent payments show what left the wallet (debit, in the sender's currency);
 // received payments show what arrived (receive amount, in the receiver's currency).
 function formatAmount(tx: HistoryEntry): string {
   if (tx.direction === 'received') {
-    const scale = tx.receiveAssetScale ?? tx.assetScale;
     const code  = tx.receiveAssetCode  ?? tx.assetCode;
-    const amount = (Number(tx.receiveAmount ?? '0') / 10 ** scale).toFixed(scale);
-    return `+${amount} ${code}`;
+    const scale = tx.receiveAssetScale ?? tx.assetScale;
+    return `+${formatMoney(tx.receiveAmount ?? '0', code, scale)}`;
   }
-  const amount = (Number(tx.debitAmount ?? '0') / 10 ** tx.assetScale).toFixed(tx.assetScale);
-  return `−${amount} ${tx.assetCode}`;
+  return `−${formatMoney(tx.debitAmount ?? '0', tx.assetCode, tx.assetScale)}`;
 }
 
 function formatDate(ts: string): string {

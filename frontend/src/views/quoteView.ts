@@ -2,15 +2,12 @@ import { api, QuoteResponse, User, UserSearchResult, WalletInfo, PaymentRequestE
 import { escapeHtml } from '../escape';
 import { toPointer } from '../pointer';
 import { avatarHtml } from '../avatar';
-
-function fmt(value: string, assetCode: string, assetScale: number): string {
-  return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
-}
+import { formatMoney } from '../money';
 
 // One row in the "Requests for you" card. The counterpart is the requester
 // (who gets paid); the current user is the payer.
 function incomingAskHtml(ask: PaymentRequestEntry): string {
-  const amount = fmt(ask.amount, ask.assetCode, ask.assetScale);
+  const amount = formatMoney(ask.amount, ask.assetCode, ask.assetScale);
   const line = ask.paymentType === 'FIXED_SEND'
     ? `<strong>${escapeHtml(ask.counterpartName)}</strong> asks you to send <strong>${amount}</strong>`
     : `<strong>${escapeHtml(ask.counterpartName)}</strong> asks for enough that they receive <strong>${amount}</strong>`;
@@ -63,8 +60,9 @@ export function renderQuoteView(
 
       <form id="quote-form" class="send-form" novalidate>
         <div class="field">
-          <label>Your Payment Pointer</label>
-          <input type="text" class="input" value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" readonly disabled />
+          <label>Your Payment Pointer 🔒</label>
+          <input type="text" class="input" value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" placeholder="No wallet set yet" readonly disabled aria-readonly="true" />
+          <span class="field-hint">This is your own wallet — change it on your <a href="#/profile">Profile</a> page.</span>
         </div>
 
         <hr class="divider" />
