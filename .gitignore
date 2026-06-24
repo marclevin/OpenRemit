@@ -21,3 +21,7 @@ backend/drizzle/
 # OS
 .DS_Store
 Thumbs.db
+
+
+# Added by group
+*.json
