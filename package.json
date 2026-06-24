@@ -8,10 +8,15 @@
   ],
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "bot": "node bot/src/index.js",
     "build": "npm run build --workspaces --if-present",
     "db:push": "npm run db:push --workspace=backend"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "express": "^5.2.1"
   }
 }
