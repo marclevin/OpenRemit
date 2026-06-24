@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { transactions, paymentRequests, postUnlocks } from '../db/schema';
-import { getClient, isFinalizedGrant } from '../lib/openPayments';
+import { playSessions, pledges } from '../db/schema';
+import { continuePoolGrant } from '../lib/grantFlow';
 import { config } from '../config';
 
 export const callbackRouter = Router();
@@ -10,142 +10,73 @@ export const callbackRouter = Router();
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/callback
 //
-// GNAP redirect endpoint — the auth server redirects the user's browser here
-// after they complete (or deny) consent.
+// GNAP redirect endpoint — the wallet's auth server redirects the user's browser
+// here after they approve (or decline) the one interactive grant that funds a
+// pool. A pool is either a player's play_session bankroll (grantType=session) or
+// a sponsor's pledge (grantType=pledge).
 //
-// Query params supplied by the auth server:
-//   interact_ref   — exchange token used to continue the grant
-//   hash           — GNAP hash for verifying the callback (optional verification)
-//
-// Query param we added to the callback URL in /consent:
-//   transactionId  — our DB row to update
+// Query params:
+//   grantType    — 'session' | 'pledge' (which table the row lives in)
+//   id           — our DB row id to finalise
+//   interact_ref — exchange token to continue the grant (present on approval)
+//   result       — 'grant_rejected' when the user declined consent
 //
 // Steps:
-//   1. Load the transaction and validate state
-//   2. Continue the grant with interact_ref → receive access token
-//   3. Create the outgoing payment
-//   4. Mark the transaction COMPLETED and redirect the browser to the frontend
+//   1. Validate grantType + id, load the AWAITING_GRANT row.
+//   2. Decline path (no interact_ref / grant_rejected): mark ENDED, redirect.
+//   3. Success: continue the grant → access token, mark ACTIVE, redirect.
 // ─────────────────────────────────────────────────────────────────────────────
 callbackRouter.get('/', async (req, res) => {
-  // On success the auth server sends `interact_ref`. On rejection it sends
-  // `result=grant_rejected` (and no interact_ref) — that's the user clicking
-  // "Decline" at their wallet's consent page.
-  const { interact_ref, transactionId, result } = req.query as Record<string, string>;
+  const { grantType, id, interact_ref, result } = req.query as Record<string, string>;
 
-  if (!transactionId) {
-    return res.status(400).send('Missing transactionId in callback query');
+  if (grantType !== 'session' && grantType !== 'pledge') {
+    return res.status(400).send('Missing or invalid grantType in callback query');
+  }
+  if (!id) {
+    return res.status(400).send('Missing id in callback query');
   }
 
-  const [tx] = await db
-    .select()
-    .from(transactions)
-    .where(eq(transactions.id, transactionId));
+  const declinedRedirect = `${config.frontendUrl}?grant=${grantType}&status=declined&id=${id}`;
+  const activeRedirect   = `${config.frontendUrl}?grant=${grantType}&status=active&id=${id}`;
 
-  if (!tx || tx.status !== 'AWAITING_GRANT') {
-    return res.redirect(`${config.frontendUrl}?status=failed&id=${transactionId}&reason=invalid_state`);
+  // Load the row from the table the grantType points at.
+  const row = grantType === 'session'
+    ? await db.select().from(playSessions).where(eq(playSessions.id, id)).get()
+    : await db.select().from(pledges).where(eq(pledges.id, id)).get();
+
+  if (!row || row.status !== 'AWAITING_GRANT') {
+    return res.redirect(declinedRedirect);
   }
 
-  // If this transaction unlocks a News post, send the reader back to that
-  // article on return (on either outcome) instead of the generic status view.
-  const [unlock] = await db
-    .select({ postId: postUnlocks.postId })
-    .from(postUnlocks)
-    .where(and(eq(postUnlocks.transactionId, transactionId), eq(postUnlocks.status, 'PENDING')));
-  const postSuffix = unlock ? `&post=${unlock.postId}` : '';
+  // Helper: flip the right table's row status (keeps the success/decline/error
+  // branches table-agnostic).
+  const setStatus = async (status: 'ENDED' | 'ACTIVE', token?: { accessToken: string; manageUrl: string }) => {
+    const updates = token !== undefined
+      ? { status, grantAccessToken: token.accessToken, grantManageUrl: token.manageUrl, updatedAt: new Date() }
+      : { status, updatedAt: new Date() };
+    if (grantType === 'session') {
+      await db.update(playSessions).set(updates).where(eq(playSessions.id, id));
+    } else {
+      await db.update(pledges).set(updates).where(eq(pledges.id, id));
+    }
+  };
 
-  // User declined consent (or the auth server returned no interact_ref): the
-  // grant was rejected, so there's nothing to continue. Mark the payment failed
-  // with a friendly reason and send them back to the app. Any linked ask/unlock
-  // stays PENDING (handled like every other failure), so a retry is possible.
+  // User declined consent (or the auth server returned no interact_ref): there's
+  // nothing to continue. Mark the dangling row ENDED so it isn't stuck
+  // AWAITING_GRANT, and send them back so they can start a new run/pledge.
   if (!interact_ref || result === 'grant_rejected') {
-    await db
-      .update(transactions)
-      .set({
-        status:       'FAILED',
-        errorMessage: result === 'grant_rejected'
-          ? 'Payment declined — you cancelled the authorisation at your wallet.'
-          : 'Authorisation did not complete. Please try the payment again.',
-        updatedAt:    new Date(),
-      })
-      .where(eq(transactions.id, transactionId));
-
-    return res.redirect(`${config.frontendUrl}?status=failed&id=${transactionId}${postSuffix}`);
+    await setStatus('ENDED');
+    return res.redirect(declinedRedirect);
   }
 
   try {
-    const client = await getClient();
-
-    // Continue the grant — exchanges interact_ref for an outgoing-payment access token
-    const finalizedGrant = await client.grant.continue(
-      {
-        url:         tx.grantContinueUri!,
-        accessToken: tx.grantContinueToken!,
-      },
-      { interact_ref }
-    );
-
-    if (!isFinalizedGrant(finalizedGrant)) {
-      throw new Error('Grant continuation did not return an access token. Consent may have been denied or expired.');
-    }
-
-    // Resolve the sender's resource server URL to create the outgoing payment
-    const sendingWallet = await client.walletAddress.get({ url: tx.senderWalletAddress });
-
-    // Create the outgoing payment using the previously created quote
-    const outgoingPayment = await client.outgoingPayment.create(
-      {
-        url:         sendingWallet.resourceServer,
-        accessToken: finalizedGrant.access_token.value,
-      },
-      {
-        walletAddress: sendingWallet.id,
-        quoteId:       tx.quoteUrl!,       // quoteId = full quote URL from Step 5 of /quote
-        metadata:      { description: 'OpenRemit payment' },
-      }
-    );
-
-    await db
-      .update(transactions)
-      .set({
-        status:             'COMPLETED',
-        outgoingPaymentUrl: outgoingPayment.id,
-        updatedAt:          new Date(),
-      })
-      .where(eq(transactions.id, transactionId));
-
-    // If this payment fulfils a payment request, close the request too.
-    // (On failure the request stays PENDING so the payer can retry.)
-    await db
-      .update(paymentRequests)
-      .set({ status: 'COMPLETED', updatedAt: new Date() })
-      .where(and(
-        eq(paymentRequests.transactionId, transactionId),
-        eq(paymentRequests.status, 'PENDING'),
-      ));
-
-    // If this payment unlocks a News post, grant access.
-    await db
-      .update(postUnlocks)
-      .set({ status: 'COMPLETED', updatedAt: new Date() })
-      .where(and(
-        eq(postUnlocks.transactionId, transactionId),
-        eq(postUnlocks.status, 'PENDING'),
-      ));
-
-    res.redirect(`${config.frontendUrl}?status=completed&id=${transactionId}${postSuffix}`);
+    const token = await continuePoolGrant(row.grantContinueUri!, row.grantContinueToken!, interact_ref);
+    await setStatus('ACTIVE', token);
+    res.redirect(activeRedirect);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[callback] Payment failed:', message);
-
-    await db
-      .update(transactions)
-      .set({
-        status:       'FAILED',
-        errorMessage: message,
-        updatedAt:    new Date(),
-      })
-      .where(eq(transactions.id, transactionId));
-
-    res.redirect(`${config.frontendUrl}?status=failed&id=${transactionId}${postSuffix}`);
+    console.error('[callback] Grant continuation failed:', message);
+    await setStatus('ENDED');
+    res.redirect(declinedRedirect);
   }
 });

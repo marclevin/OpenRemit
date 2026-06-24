@@ -24,16 +24,23 @@ function signToken(user: { id: string; email: string; displayName: string }): st
 // POST /api/auth/signup
 authRouter.post('/signup', async (req, res, next) => {
   try {
-    const { displayName, email, password } = req.body as {
+    const { displayName, email, password, role } = req.body as {
       displayName?: string;
       email?: string;
       password?: string;
+      role?: string;
     };
 
     if (!displayName?.trim() || !email?.trim() || !password) {
       res.status(400).json({ error: 'displayName, email and password are required' });
       return;
     }
+
+    if (role && !['PLAYER', 'SPONSOR'].includes(role)) {
+      res.status(400).json({ error: "role must be 'PLAYER' or 'SPONSOR'" });
+      return;
+    }
+    const resolvedRole = role ?? 'PLAYER';
 
     const existing = await db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
     if (existing) {
@@ -50,11 +57,12 @@ authRouter.post('/signup', async (req, res, next) => {
       displayName: displayName.trim(),
       email: email.toLowerCase(),
       passwordHash,
+      role: resolvedRole,
       createdAt: now,
     });
 
     const user = { id, email: email.toLowerCase(), displayName: displayName.trim() };
-    res.status(201).json({ token: signToken(user), user });
+    res.status(201).json({ token: signToken(user), user: { ...user, role: resolvedRole } });
   } catch (err) {
     next(err);
   }
@@ -83,7 +91,7 @@ authRouter.post('/login', async (req, res, next) => {
     }
 
     const user = { id: row.id, email: row.email, displayName: row.displayName };
-    res.json({ token: signToken(user), user: { ...user, walletAddress: row.walletAddress, avatar: row.avatar } });
+    res.json({ token: signToken(user), user: { ...user, role: row.role, walletAddress: row.walletAddress, avatar: row.avatar } });
   } catch (err) {
     next(err);
   }
@@ -107,12 +115,13 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
 // PATCH /api/auth/me
 authRouter.patch('/me', requireAuth, async (req, res, next) => {
   try {
-    const { displayName, email, password, walletAddress, avatar } = req.body as {
+    const { displayName, email, password, walletAddress, avatar, role } = req.body as {
       displayName?: string;
       email?: string;
       password?: string;
       walletAddress?: string;
       avatar?: string;
+      role?: string;
     };
 
     if (avatar && avatar.length > MAX_AVATAR_BYTES * 1.4) {
@@ -120,7 +129,13 @@ authRouter.patch('/me', requireAuth, async (req, res, next) => {
       return;
     }
 
+    if (role && !['PLAYER', 'SPONSOR'].includes(role)) {
+      res.status(400).json({ error: "role must be 'PLAYER' or 'SPONSOR'" });
+      return;
+    }
+
     const updates: Partial<typeof users.$inferInsert> = {};
+    if (role)                 updates.role         = role;
     if (displayName?.trim())  updates.displayName  = displayName.trim();
     if (email?.trim()) {
       const newEmail = email.trim().toLowerCase();

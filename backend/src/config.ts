@@ -17,6 +17,12 @@ export const config = {
     privateKeyPath: required('OP_PRIVATE_KEY_PATH'),
   },
 
+  // Receiver wallet seeded charities donate to. Defaults to the app wallet so
+  // donations move on the testnet out of the box; override per-charity in
+  // lib/seedCharities.ts (or globally via CHARITY_WALLET_ADDRESS) with distinct
+  // test wallets to make charities separate receivers.
+  charityWalletAddress: process.env.CHARITY_WALLET_ADDRESS ?? required('OP_WALLET_ADDRESS'),
+
   db: {
     path: process.env.DB_PATH ?? './openremit.db',
   },

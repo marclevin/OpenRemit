@@ -1,14 +1,16 @@
 import { config } from './config';
 import express from 'express';
 import cors from 'cors';
-import { remitRouter } from './routes/remit';
-import { callbackRouter } from './routes/callback';
 import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
-import { requestsRouter } from './routes/requests';
-import { newsRouter } from './routes/news';
+import { charitiesRouter } from './routes/charities';
+import { sessionsRouter } from './routes/sessions';
+import { gamesRouter } from './routes/games';
+import { pledgesRouter } from './routes/pledges';
+import { impactRouter } from './routes/impact';
+import { callbackRouter } from './routes/callback';
 import { errorHandler } from './middleware/errorHandler';
-import { seedNews } from './lib/seedNews';
+import { seedCharities } from './lib/seedCharities';
 
 const app = express();
 
@@ -17,21 +19,23 @@ app.use(cors({ origin: config.frontendUrl, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'openremit-backend' });
+  res.json({ ok: true, service: 'goodwager-backend' });
 });
 
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/requests', requestsRouter);
-app.use('/api/news', newsRouter);
-app.use('/api/remit', remitRouter);
+app.use('/api/charities', charitiesRouter);
+app.use('/api/sessions', sessionsRouter);
+app.use('/api/games', gamesRouter);
+app.use('/api/pledges', pledgesRouter);
+app.use('/api/impact', impactRouter);
 app.use('/api/callback', callbackRouter);
 
 app.use(errorHandler);
 
-// Seed the demo News posts on first boot (idempotent — no-op if any exist).
-seedNews().catch((err) => console.error('[seed] News seed failed:', err));
+// Seed the demo charities on first boot (idempotent — no-op if any exist).
+seedCharities().catch((err) => console.error('[seed] Charity seed failed:', err));
 
 app.listen(config.port, () => {
-  console.log(`\n  OpenRemit backend → http://localhost:${config.port}\n`);
+  console.log(`\n  GoodWager backend → http://localhost:${config.port}\n`);
 });

@@ -3,22 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OpenRemit</title>
+    <title>GoodWager</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap"
     />
   </head>
   <body>
+    <!-- CRT scanline + vignette overlay (sits above everything, never interactive) -->
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <!-- Arcade toast stack (fixed, top-center) -->
+    <div class="toast-host" id="toast-host" aria-live="polite"></div>
+
     <header class="site-header">
-      <a href="#/" class="logo">OpenRemit</a>
+      <a href="#/" class="logo" aria-label="GoodWager home">
+        <span class="logo__coin" aria-hidden="true">🕹️</span>
+        <span class="logo__text">GOODWAGER</span>
+      </a>
       <nav id="main-nav" class="main-nav" hidden>
-        <a href="#/" class="nav-link" data-route="">Home</a>
-        <a href="#/remit"   class="nav-link" data-route="remit">Send</a>
-        <a href="#/receive" class="nav-link" data-route="receive">Receive</a>
-        <a href="#/news"    class="nav-link" data-route="news">News</a>
-        <a href="#/history" class="nav-link" data-route="history">History</a>
+        <a href="#/"        class="nav-link" data-route="">Home</a>
+        <a href="#/play"    class="nav-link" data-route="play">Play</a>
+        <a href="#/sponsor" class="nav-link" data-route="sponsor">Sponsor</a>
+        <a href="#/impact"  class="nav-link" data-route="impact">Impact</a>
         <a href="#/profile" class="nav-link" data-route="profile">Profile</a>
       </nav>
     </header>

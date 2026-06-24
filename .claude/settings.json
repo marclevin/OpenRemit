@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npm install)",
       "Bash(npm run *)",
-      "Bash(npx drizzle-kit *)"
+      "Bash(npx drizzle-kit *)",
+      "Bash(cd /c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit/backend && cat node_modules/drizzle-orm/package.json | grep '\"version\"' && grep -rl \"countDistinct\" node_modules/drizzle-orm/*.d.ts 2>/dev/null | head -5)",
+      "Read(//c/c/Users/marcl/OneDrive/Desktop/University/Masters/TA/ILF_Hackathon/OpenRemit/backend/node_modules/drizzle-orm/**)",
+      "PowerShell(cd frontend; $out = npx tsc --noEmit 2>&1; \\($out | Select-String -Pattern \"gameRocketView\"\\).Count; \"---OTHER ERROR FILES---\"; $out | Select-String -Pattern \"error TS\" | ForEach-Object { \\($_ -split '\\\\\\('\\)[0] } | Sort-Object -Unique)",
+      "PowerShell(cd \"c:\\\\Users\\\\marcl\\\\OneDrive\\\\Desktop\\\\University\\\\Masters\\\\TA\\\\ILF_Hackathon\\\\OpenRemit\\\\frontend\"; $out = npx tsc --noEmit 2>&1; $mine = $out | Select-String -Pattern \"gamePachinkoView\"; if \\($mine\\) { Write-Output \"PACHINKO ERRORS:\"; $mine } else { Write-Output \"gamePachinkoView.ts: CLEAN \\(0 diagnostics\\)\" }; Write-Output \"---\"; Write-Output \"Total non-pachinko tsc errors:\"; \\($out | Select-String -Pattern \"error TS\"\\).Count)",
+      "Bash(tee /dev/stderr)"
     ]
   }
 }

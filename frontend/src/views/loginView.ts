@@ -3,21 +3,26 @@ import { setToken } from '../auth';
 
 export function renderLoginView(container: HTMLElement): void {
   container.innerHTML = `
-    <div class="card">
-      <h2>Log in</h2>
+    <div class="panel login-panel">
+      <h1 class="pixel-h2 auth-title">LOG IN</h1>
+      <p class="auth-sub">Insert your credentials to continue.</p>
+
       <form id="login-form" novalidate>
         <div class="field">
-          <label for="login-email">Email</label>
-          <input id="login-email" name="email" type="email" class="input" required autocomplete="email" />
+          <label class="pixel-label" for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" class="coin-input" required autocomplete="email" />
         </div>
         <div class="field">
-          <label for="login-password">Password</label>
-          <input id="login-password" name="password" type="password" class="input" required autocomplete="current-password" />
+          <label class="pixel-label" for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" class="coin-input" required autocomplete="current-password" />
         </div>
-        <div id="login-error" class="error-msg" hidden></div>
-        <button type="submit" class="btn btn-primary" id="login-btn">Log in</button>
+
+        <div id="login-error" class="chip chip--pink auth-error" hidden></div>
+
+        <button type="submit" class="btn btn--green btn--lg btn--block" id="login-btn">LOG IN</button>
       </form>
-      <p class="auth-switch">No account? <a href="#/signup">Sign up</a></p>
+
+      <p class="auth-switch">No account? <a href="#/signup">Sign up ▸</a></p>
     </div>
   `;
 
@@ -28,24 +33,24 @@ export function renderLoginView(container: HTMLElement): void {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     btn.disabled    = true;
-    btn.textContent = 'Logging in…';
+    btn.textContent = 'LOADING…';
     errDiv.hidden   = true;
 
     try {
-      const data   = new FormData(form);
-      const result = await api.auth.login({
+      const data = new FormData(form);
+      const { token, user } = await api.auth.login({
         email:    (data.get('email')    as string).trim(),
         password:  data.get('password') as string,
       });
-      setToken(result.token);
-      window.location.hash = '#/remit';
+      setToken(token);
+      window.location.hash = user.role === 'SPONSOR' ? '#/sponsor' : '#/play';
     } catch (err: unknown) {
       const msg          = err instanceof Error ? err.message : String(err);
       errDiv.textContent = msg;
       errDiv.hidden      = false;
     } finally {
       btn.disabled    = false;
-      btn.textContent = 'Log in';
+      btn.textContent = 'LOG IN';
     }
   });
 }

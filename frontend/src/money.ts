@@ -1,16 +1,22 @@
-// Shared money formatting. Open Payments amounts come in two shapes:
-//   • smallest unit ("minor") — an integer string like "1234" plus an assetScale
-//     (e.g. 2 for cents), which is how the API returns transaction amounts;
-//   • major unit — a decimal string like "0.10" used for human-set news prices.
-// Views import these instead of redefining a local `fmt`.
+// Shared money formatting. GoodWager amounts are integers in the smallest asset
+// unit (e.g. cents) with an assetScale (e.g. 2). Views import these instead of
+// redefining a local formatter.
 
-/** Format a smallest-unit amount as "12.34 USD". Returns "—" for null/empty. */
-export function formatMoney(value: string | null, assetCode: string, assetScale: number): string {
+/** Format a smallest-unit amount as "12.34 USD". Returns "—" for null/undefined. */
+export function formatMoney(value: number | string | null | undefined, assetCode: string, assetScale: number): string {
   if (value == null || value === '') return '—';
   return `${(Number(value) / 10 ** assetScale).toFixed(assetScale)} ${assetCode}`;
 }
 
-/** Format an already-major-unit price (e.g. "0.10") as "0.10 USD". */
-export function formatPrice(major: string, assetCode: string, assetScale: number): string {
-  return `${Number(major).toFixed(assetScale)} ${assetCode}`;
+/** Just the number, no currency code: "12.34". */
+export function formatAmount(value: number | string | null | undefined, assetScale: number): string {
+  if (value == null || value === '') return '—';
+  return (Number(value) / 10 ** assetScale).toFixed(assetScale);
+}
+
+/** Parse a major-unit input string (e.g. "5" or "5.50") into smallest units (550). */
+export function toMinor(major: string, assetScale: number): number {
+  const n = Number(major);
+  if (!Number.isFinite(n)) return NaN;
+  return Math.round(n * 10 ** assetScale);
 }

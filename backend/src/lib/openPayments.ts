@@ -2,6 +2,7 @@ import {
   createAuthenticatedClient,
   isPendingGrant,
   isFinalizedGrantWithAccessToken,
+  OpenPaymentsClientError,
 } from '@interledger/open-payments';
 import type { Grant, GrantContinuation, GrantWithAccessToken, PendingGrant } from '@interledger/open-payments';
 import { config } from '../config';
@@ -33,4 +34,39 @@ export function isFinalizedGrant(
   grant: PendingGrant | GrantContinuation | Grant
 ): grant is GrantWithAccessToken {
   return !isPendingGrant(grant) && isFinalizedGrantWithAccessToken(grant);
+}
+
+function safeJson(v: unknown): string {
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
+// True when an OP error looks like the access token is no longer usable (expired
+// / "Inactive Token"), i.e. it's worth rotating the token and retrying — as
+// opposed to a genuine "forbidden" like an exhausted spending limit.
+export function isStaleTokenError(err: unknown): boolean {
+  if (!(err instanceof OpenPaymentsClientError)) return false;
+  if (err.status === 401) return true;
+  if (err.status === 403) {
+    const d = (err.description ?? '').toLowerCase();
+    return d.includes('token') || d.includes('inactive') || d.includes('expired');
+  }
+  return false;
+}
+
+// Open Payments SDK errors (OpenPaymentsClientError) carry the real cause in
+// `description` / `status` / `code` / `validationErrors` / `details` — none of
+// which show up in the bare `.message`. This flattens all of it into one
+// diagnostic line. Use it everywhere we log an OP failure.
+export function describeOpError(err: unknown): string {
+  if (err instanceof OpenPaymentsClientError) {
+    const parts: string[] = [err.message];
+    if (err.description && err.description !== err.message) parts.push(`description="${err.description}"`);
+    if (err.status != null) parts.push(`status=${err.status}`);
+    if (err.code) parts.push(`code=${err.code}`);
+    if (err.validationErrors?.length) parts.push(`validationErrors=[${err.validationErrors.join('; ')}]`);
+    if (err.details && Object.keys(err.details).length) parts.push(`details=${safeJson(err.details)}`);
+    return parts.join(' ');
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
 }

@@ -1,78 +1,119 @@
-import { api, User } from '../api';
+import { api, Role, User } from '../api';
 import { clearToken } from '../auth';
 import { escapeHtml } from '../escape';
-import { presetRecipient } from './quoteView';
+import { avatarHtml } from '../avatar';
 import { toPointer } from '../pointer';
+import { toast } from '../lib/arcade';
 
-export async function renderProfileView(container: HTMLElement): Promise<void> {
-  container.innerHTML = `<div class="card"><p class="muted">Loading profile…</p></div>`;
+// Avatar payloads are sent inline as base64 data URLs. Keep them small so the
+// JSON body stays reasonable — warn the user past ~200KB.
+const AVATAR_MAX_BYTES = 200 * 1024;
 
-  let user: User;
+type UpdateBody = Partial<{
+  displayName: string;
+  email: string;
+  password: string;
+  walletAddress: string;
+  avatar: string | null;
+  role: Role;
+}>;
 
-  try {
-    user = await api.auth.me();
-  } catch {
-    container.innerHTML = `<div class="card"><p class="error-msg">Failed to load profile.</p></div>`;
-    return;
-  }
+export function renderProfileView(container: HTMLElement, user: User): void {
+  const walletPointer = user.walletAddress ? toPointer(user.walletAddress) : '';
+  const walletMissing = !user.walletAddress;
 
   container.innerHTML = `
-    <div class="card profile-card">
-      <div class="profile-header">
-        <div class="avatar-wrap">
-          <img id="avatar-preview" class="profile-avatar"
-            src="${escapeHtml(user.avatar ?? '')}"
-            alt="avatar"
-            style="${user.avatar ? '' : 'display:none'}"
-          />
-          <div id="avatar-placeholder" class="avatar-placeholder" style="${user.avatar ? 'display:none' : ''}">
-            ${escapeHtml(user.displayName.charAt(0).toUpperCase())}
-          </div>
+    <div class="panel profile-panel">
+      <div class="profile-head">
+        <div id="avatar-preview" class="profile-avatar-wrap">
+          ${avatarHtml(user, 'profile-avatar')}
         </div>
         <div>
-          <h2 id="profile-name-display">${escapeHtml(user.displayName)}</h2>
+          <h1 class="pixel-h2 profile-name">${escapeHtml(user.displayName)}</h1>
           <span class="muted">${escapeHtml(user.email)}</span>
         </div>
       </div>
 
-      <form id="profile-form" novalidate>
+      ${walletMissing ? `
+        <div class="panel panel--inset wallet-warning">
+          <span class="chip chip--pink">NO WALLET</span>
+          <p>Set your wallet address below — <b>required to play or sponsor</b>.</p>
+        </div>` : ''}
+
+      <form id="profile-form" class="profile-form" novalidate>
         <div class="field">
-          <label for="p-name">Display name</label>
-          <input id="p-name" name="displayName" type="text" class="input" value="${escapeHtml(user.displayName)}" />
+          <label class="pixel-label" for="p-name">Display name</label>
+          <input id="p-name" name="displayName" type="text" class="coin-input"
+            value="${escapeHtml(user.displayName)}" autocomplete="name" />
         </div>
         <div class="field">
-          <label for="p-email">Email</label>
-          <input id="p-email" name="email" type="email" class="input" value="${escapeHtml(user.email)}" />
+          <label class="pixel-label" for="p-email">Email</label>
+          <input id="p-email" name="email" type="email" class="coin-input"
+            value="${escapeHtml(user.email)}" autocomplete="email" />
         </div>
         <div class="field">
-          <label for="p-wallet">Wallet address</label>
-          <input id="p-wallet" name="walletAddress" type="text" class="input"
+          <label class="pixel-label" for="p-password">New password <span class="muted">(blank = unchanged)</span></label>
+          <input id="p-password" name="password" type="password" class="coin-input" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <label class="pixel-label" for="p-wallet">Wallet address <span class="muted">(required to play or sponsor)</span></label>
+          <input id="p-wallet" name="walletAddress" type="text" class="coin-input"
             placeholder="$ilp.interledger-test.dev/your-handle"
-            value="${escapeHtml(user.walletAddress ? toPointer(user.walletAddress) : '')}" />
+            value="${escapeHtml(walletPointer)}" />
         </div>
         <div class="field">
-          <label for="p-password">New password <span class="muted">(leave blank to keep current)</span></label>
-          <input id="p-password" name="password" type="password" class="input" autocomplete="new-password" />
+          <label class="pixel-label" for="p-avatar">Avatar</label>
+          <input id="p-avatar" name="avatar" type="file" accept="image/*" class="coin-input" />
         </div>
+
         <div class="field">
-          <label for="p-avatar">Profile picture</label>
-          <input id="p-avatar" name="avatar" type="file" accept="image/*" class="input" />
+          <label class="pixel-label">Role</label>
+          <div class="role-toggle" role="radiogroup" aria-label="Account role">
+            <button type="button" class="btn btn--ghost role-option" data-role="PLAYER" aria-pressed="false">
+              <span class="role-option__icon" aria-hidden="true">🎮</span>
+              <span class="role-option__label">PLAYER</span>
+            </button>
+            <button type="button" class="btn btn--ghost role-option" data-role="SPONSOR" aria-pressed="false">
+              <span class="role-option__icon" aria-hidden="true">💚</span>
+              <span class="role-option__label">SPONSOR</span>
+            </button>
+          </div>
         </div>
-        <div id="profile-error"   class="error-msg"     hidden></div>
-        <div id="profile-success" class="success-msg"   hidden>Saved!</div>
-        <button type="submit" class="btn btn-primary" id="profile-btn">Save changes</button>
+
+        <div id="profile-error" class="chip chip--pink auth-error" hidden></div>
+
+        <button type="submit" class="btn btn--green btn--lg btn--block" id="profile-btn">SAVE</button>
       </form>
 
-      <hr class="divider" />
+      <hr class="profile-divider" />
 
-      <button id="logout-btn" class="btn-logout">Log out</button>
+      <button id="logout-btn" class="btn btn--pink btn--block">LOG OUT 🚪</button>
     </div>
   `;
 
-  // Avatar preview
-  const avatarInput   = container.querySelector<HTMLInputElement>('#p-avatar')!;
-  const avatarPreview = container.querySelector<HTMLImageElement>('#avatar-preview')!;
-  const avatarPH      = container.querySelector<HTMLDivElement>('#avatar-placeholder')!;
+  // ── Role toggle (default to the user's current role) ──
+  let role: Role = user.role;
+  const options = Array.from(container.querySelectorAll<HTMLButtonElement>('.role-option'));
+  const paintRole = (): void => {
+    for (const o of options) {
+      const selected = o.dataset.role === role;
+      o.classList.toggle('is-selected', selected);
+      o.setAttribute('aria-pressed', String(selected));
+    }
+  };
+  for (const option of options) {
+    option.addEventListener('click', () => {
+      role = (option.dataset.role as Role) ?? user.role;
+      paintRole();
+    });
+  }
+  paintRole();
+
+  // ── Avatar preview + capture ──
+  const avatarInput = container.querySelector<HTMLInputElement>('#p-avatar')!;
+  const avatarWrap  = container.querySelector<HTMLDivElement>('#avatar-preview')!;
+  let avatarData: string | null = null;
+  let avatarTooLarge = false;
 
   avatarInput.addEventListener('change', () => {
     const file = avatarInput.files?.[0];
@@ -80,62 +121,57 @@ export async function renderProfileView(container: HTMLElement): Promise<void> {
     const reader = new FileReader();
     reader.onload = (e) => {
       const src = e.target?.result as string;
-      avatarPreview.src          = src;
-      avatarPreview.style.display = '';
-      avatarPH.style.display      = 'none';
+      avatarData = src;
+      avatarTooLarge = src.length > AVATAR_MAX_BYTES;
+      if (avatarTooLarge) toast('Image is large (>200KB) — it may be rejected', 'err');
+      avatarWrap.innerHTML = `<img class="profile-avatar" src="${escapeHtml(src)}" alt="avatar preview" />`;
     };
     reader.readAsDataURL(file);
   });
 
-  // Profile form
-  const form       = container.querySelector<HTMLFormElement>('#profile-form')!;
-  const btn        = container.querySelector<HTMLButtonElement>('#profile-btn')!;
-  const errDiv     = container.querySelector<HTMLDivElement>('#profile-error')!;
-  const successDiv = container.querySelector<HTMLDivElement>('#profile-success')!;
+  // ── Save ──
+  const form   = container.querySelector<HTMLFormElement>('#profile-form')!;
+  const btn    = container.querySelector<HTMLButtonElement>('#profile-btn')!;
+  const errDiv = container.querySelector<HTMLDivElement>('#profile-error')!;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     btn.disabled    = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = 'SAVING…';
     errDiv.hidden   = true;
-    successDiv.hidden = true;
+
+    const displayName = (form.querySelector<HTMLInputElement>('#p-name')!.value).trim();
+    const email       = (form.querySelector<HTMLInputElement>('#p-email')!.value).trim();
+    const password    =  form.querySelector<HTMLInputElement>('#p-password')!.value;
+    const wallet      = (form.querySelector<HTMLInputElement>('#p-wallet')!.value).trim();
+
+    // Build the body explicitly (no conditional spreads) — only send changed
+    // or meaningful fields. Wallet is always sent as the raw value entered.
+    const body: UpdateBody = {};
+    if (displayName && displayName !== user.displayName) body.displayName = displayName;
+    if (email && email !== user.email)                   body.email = email;
+    if (password)                                        body.password = password;
+    body.walletAddress = wallet;
+    if (role !== user.role)                              body.role = role;
+    if (avatarData)                                      body.avatar = avatarData;
 
     try {
-      const data: Record<string, string | undefined> = {
-        displayName:   (form.querySelector<HTMLInputElement>('#p-name')!.value).trim()   || undefined,
-        email:         (form.querySelector<HTMLInputElement>('#p-email')!.value).trim()  || undefined,
-        walletAddress: (form.querySelector<HTMLInputElement>('#p-wallet')!.value).trim() || '',
-        password:       form.querySelector<HTMLInputElement>('#p-password')!.value       || undefined,
-      };
-
-      const file = avatarInput.files?.[0];
-      if (file) {
-        const b64 = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader();
-          r.onload  = () => resolve(r.result as string);
-          r.onerror = reject;
-          r.readAsDataURL(file);
-        });
-        (data as Record<string, string | undefined>)['avatar'] = b64;
-      }
-
-      const updated = await api.auth.update(data as Parameters<typeof api.auth.update>[0]);
-      container.querySelector<HTMLElement>('#profile-name-display')!.textContent = updated.displayName;
-      successDiv.hidden = false;
+      const updated = await api.auth.update(body);
+      container.querySelector<HTMLElement>('.profile-name')!.textContent = updated.displayName;
+      toast('Profile saved', 'win');
     } catch (err: unknown) {
       const msg          = err instanceof Error ? err.message : String(err);
       errDiv.textContent = msg;
       errDiv.hidden      = false;
     } finally {
       btn.disabled    = false;
-      btn.textContent = 'Save changes';
+      btn.textContent = 'SAVE';
     }
   });
 
-  // Logout
-  container.querySelector('#logout-btn')!.addEventListener('click', () => {
+  // ── Logout ──
+  container.querySelector<HTMLButtonElement>('#logout-btn')!.addEventListener('click', () => {
     clearToken();
-    presetRecipient(null); // don't leak the selection into the next session
     window.location.hash = '#/';
   });
 }

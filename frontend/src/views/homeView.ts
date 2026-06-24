@@ -1,97 +1,59 @@
-import { isLoggedIn } from '../auth';
+import type { User } from '../api';
+import { escapeHtml } from '../escape';
 
-// Inline SVG icons (Feather-style, stroke follows currentColor).
-// Add or swap icons here rather than reaching for emoji — they render
-// consistently across platforms and pick up the theme colour.
-const SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
-const icons = {
-  bolt:   `<svg ${SVG_ATTRS}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-  fx:     `<svg ${SVG_ATTRS}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
-  globe:  `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-  unlock: `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`,
-};
+// Splash / onboarding for GoodWager. Pure markup — no API calls. The router
+// passes the cached user (or null when logged out) so we can flip the whole
+// screen: a returning player gets a stripped-down board, a visitor gets the
+// full pitch with sign-up / log-in CTAs.
+export function renderHomeView(container: HTMLElement, user: User | null): void {
+  // ── Logged in: keep it simple — welcome + jump-straight-in CTAs. ──
+  if (user) {
+    container.innerHTML = `
+      <div class="home-splash home-splash--auth">
+        <div class="home-marquee">
+          <h1 class="pixel-h1 home-title">GOODWAGER</h1>
+        </div>
+        <p class="home-greeting">Welcome back, <b>${escapeHtml(user.displayName)}</b>.</p>
 
-export function renderHomeView(container: HTMLElement): void {
-  if (isLoggedIn()) {
-    renderDashboardHome(container);
-  } else {
-    renderPublicHome(container);
+        <div class="home-cta">
+          <a href="#/play"    class="btn btn--green btn--lg btn--block">ENTER ARCADE 🎮</a>
+          <a href="#/sponsor" class="btn btn--cyan btn--lg btn--block">Sponsor a cause 💚</a>
+          <a href="#/impact"  class="btn btn--ghost btn--block">View impact</a>
+        </div>
+      </div>
+    `;
+    return;
   }
-}
 
-function renderDashboardHome(container: HTMLElement): void {
+  // ── Logged out: full pitch + onboarding explainers. ──
   container.innerHTML = `
-    <div class="home-logged-in">
-      <div class="home-hero-band">
-        <h1 class="home-hero-title">Send money home.</h1>
-        <h1 class="home-hero-title home-hero-title-warm">Wherever home is.</h1>
-        <p class="home-hero-body">
-          Move money across borders in seconds.<br />
-          Live exchange rates, no hidden fees, built on open standards.
-        </p>
-        <div class="home-hero-cta-row">
-          <a href="#/remit"   class="btn btn-africa-primary">Send money →</a>
-          <a href="#/history" class="btn btn-secondary">View history</a>
+    <div class="home-splash">
+      <div class="home-marquee">
+        <h1 class="pixel-h1 home-title">GOODWAGER</h1>
+        <p class="home-tagline">Play games. Fund charity. When you win, a sponsor matches it.</p>
+      </div>
+
+      <div class="home-explainers">
+        <div class="panel home-explainer">
+          <span class="home-explainer__icon" aria-hidden="true">🎯</span>
+          <h2 class="pixel-h2">Your wager is ALWAYS donated</h2>
+          <p>Every coin you stake goes straight to the cause — win or lose, the charity gets paid.</p>
+        </div>
+        <div class="panel home-explainer">
+          <span class="home-explainer__icon" aria-hidden="true">🏆</span>
+          <h2 class="pixel-h2">WIN → a sponsor matches it</h2>
+          <p>Land a win and a sponsor matches your winnings to the very same charity. Double the good.</p>
+        </div>
+        <div class="panel home-explainer">
+          <span class="home-explainer__icon" aria-hidden="true">💚</span>
+          <h2 class="pixel-h2">Pick the cause you play for</h2>
+          <p>Choose the charity behind your run, then watch the donation receipts roll in live.</p>
         </div>
       </div>
 
-      <div class="home-pillars">
-        <div class="home-pillar">
-          <span class="home-pillar-icon">${icons.bolt}</span>
-          <div>
-            <div class="home-pillar-label">Instant settlement</div>
-            <div class="home-pillar-text">Transfers settle in real time — the money is there when it's needed.</div>
-          </div>
-        </div>
-        <div class="home-pillar">
-          <span class="home-pillar-icon">${icons.fx}</span>
-          <div>
-            <div class="home-pillar-label">Fair exchange rates</div>
-            <div class="home-pillar-text">Live FX quotes before you commit. ZAR, KES, NGN, GHS and more.</div>
-          </div>
-        </div>
-        <div class="home-pillar">
-          <span class="home-pillar-icon">${icons.unlock}</span>
-          <div>
-            <div class="home-pillar-label">Open by design</div>
-            <div class="home-pillar-text">Built on the Interledger Open Payments standard.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="home-proverb-band">
-        <p class="home-proverb">"People lie, money tells the truth."</p>
-      </div>
-    </div>
-  `;
-}
-
-function renderPublicHome(container: HTMLElement): void {
-  container.innerHTML = `
-    <div class="card hero">
-      <div class="hero-africa-tag">${icons.globe} Pan-African remittances</div>
-      <h1>Send money home</h1>
-      <p class="hero-sub">
-        Fast, fair, and open — powered by the Interledger Protocol.
-        Live exchange rates across Africa and beyond.
-      </p>
-      <div class="hero-actions">
-        <a href="#/signup" class="btn btn-primary">Create account</a>
-        <a href="#/login"  class="btn btn-secondary">Log in</a>
-      </div>
-      <div class="hero-features">
-        <div class="feature">
-          <span class="feature-icon">${icons.bolt}</span>
-          <span>Real-time transfers</span>
-        </div>
-        <div class="feature">
-          <span class="feature-icon">${icons.fx}</span>
-          <span>Live FX rates</span>
-        </div>
-        <div class="feature">
-          <span class="feature-icon">${icons.globe}</span>
-          <span>Pan-African reach</span>
-        </div>
+      <div class="home-cta">
+        <a href="#/signup" class="btn btn--gold btn--lg btn--block">INSERT COIN ▸ SIGN UP</a>
+        <a href="#/login"  class="btn btn--ghost btn--block">Log in</a>
       </div>
     </div>
   `;
