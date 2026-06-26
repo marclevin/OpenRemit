@@ -6,11 +6,12 @@ import {
 import type { Grant, GrantContinuation, GrantWithAccessToken, PendingGrant } from '@interledger/open-payments';
 import { config } from '../config';
 
-// Singleton — one authenticated client per process lifetime.
-// The client signs every request with the Ed25519 private key.
-let _client: Awaited<ReturnType<typeof createAuthenticatedClient>> | null = null;
+type OPClient = Awaited<ReturnType<typeof createAuthenticatedClient>>;
 
-export async function getClient() {
+// Pool wallet singleton (the primary app wallet — OP_WALLET_ADDRESS).
+let _client: OPClient | null = null;
+
+export async function getClient(): Promise<OPClient> {
   if (_client) return _client;
   _client = await createAuthenticatedClient({
     walletAddressUrl: config.op.walletAddress,
@@ -18,6 +19,30 @@ export async function getClient() {
     privateKey:       config.op.privateKeyPath, // file path — SDK reads the .pem itself
   });
   return _client;
+}
+
+// Backstop wallet singleton (outside-funded tranche — BACKSTOP_WALLET_ADDRESS).
+// Throws if backstop credentials are not configured.
+let _backstopClient: OPClient | null = null;
+
+export async function getBackstopClient(): Promise<OPClient> {
+  if (_backstopClient) return _backstopClient;
+  const { walletAddress, keyId, privateKeyPath } = config.backstop;
+  if (!walletAddress || !keyId || !privateKeyPath) {
+    throw new Error(
+      'Backstop wallet credentials not configured. Set BACKSTOP_WALLET_ADDRESS, BACKSTOP_KEY_ID, and BACKSTOP_PRIVATE_KEY_PATH in backend/.env.'
+    );
+  }
+  _backstopClient = await createAuthenticatedClient({
+    walletAddressUrl: walletAddress,
+    keyId,
+    privateKey: privateKeyPath,
+  });
+  return _backstopClient;
+}
+
+export async function getClientForSource(source: 'POOL' | 'BACKSTOP'): Promise<OPClient> {
+  return source === 'POOL' ? getClient() : getBackstopClient();
 }
 
 // Convert shorthand "$ilp.example.com/alice" → "https://ilp.example.com/alice".

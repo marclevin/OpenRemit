@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { WalletAddress } from '@interledger/open-payments';
+import type { AuthenticatedClient, WalletAddress } from '@interledger/open-payments';
 import { db } from '../db';
 import { transactions } from '../db/schema';
 import { getClient, normaliseWalletAddress, isFinalizedGrant } from './openPayments';
@@ -18,6 +18,11 @@ export interface QuoteFlowInput {
   amount:      string;
   paymentType: 'FIXED_SEND' | 'FIXED_RECEIVE';
   userId:      string;
+  /**
+   * Optional authenticated client override. Defaults to the pool/primary wallet
+   * client returned by getClient(). Pass the backstop client for backstop payouts.
+   */
+  client?: AuthenticatedClient;
   /**
    * Runs after both wallets are resolved but BEFORE any Open Payments resource
    * is created. Throw to abort — e.g. a payment request whose denominating
@@ -39,7 +44,7 @@ export interface QuoteFlowResult {
 export async function createQuoteTransaction(input: QuoteFlowInput): Promise<QuoteFlowResult> {
   const senderUrl   = normaliseWalletAddress(input.senderWalletAddress);
   const receiverUrl = normaliseWalletAddress(input.receiverWalletAddress);
-  const client      = await getClient();
+  const client      = input.client ?? await getClient();
   const fixedSend   = input.paymentType === 'FIXED_SEND';
 
   // Step 1: Resolve both wallet addresses in parallel
@@ -51,14 +56,26 @@ export async function createQuoteTransaction(input: QuoteFlowInput): Promise<Quo
   input.validateWallets?.(sendingWallet, receivingWallet);
 
   // Step 2: Non-interactive incoming-payment grant (receiver's auth server)
-  const incomingPaymentGrant = await client.grant.request(
-    { url: receivingWallet.authServer },
-    {
-      access_token: {
-        access: [{ type: 'incoming-payment', actions: ['create', 'read', 'complete'] }],
-      },
-    }
-  );
+  console.log('[op:incoming-grant-request] receiverAuthServer=%s receiverWallet=%s',
+    receivingWallet.authServer, receivingWallet.id);
+  let incomingPaymentGrant: Awaited<ReturnType<typeof client.grant.request>>;
+  try {
+    incomingPaymentGrant = await client.grant.request(
+      { url: receivingWallet.authServer },
+      {
+        access_token: {
+          access: [{ type: 'incoming-payment', actions: ['create', 'read', 'complete'] }],
+        },
+      }
+    );
+    console.log('[op:incoming-grant-request:ok] finalized=%s', isFinalizedGrant(incomingPaymentGrant));
+  } catch (err) {
+    const status = (err as any)?.status ?? (err as any)?.response?.status ?? 'unknown';
+    const body   = (err as any)?.body ?? (err as any)?.message ?? String(err);
+    console.error('[op:incoming-grant-request:fail] receiverAuthServer=%s HTTP=%s body=%j',
+      receivingWallet.authServer, status, body);
+    throw err;
+  }
   if (!isFinalizedGrant(incomingPaymentGrant)) {
     throw new Error('Expected non-interactive incoming-payment grant');
   }
@@ -84,14 +101,26 @@ export async function createQuoteTransaction(input: QuoteFlowInput): Promise<Quo
       );
 
   // Step 4: Non-interactive quote grant (sender's auth server)
-  const quoteGrant = await client.grant.request(
-    { url: sendingWallet.authServer },
-    {
-      access_token: {
-        access: [{ type: 'quote', actions: ['create', 'read'] }],
-      },
-    }
-  );
+  console.log('[op:quote-grant-request] senderAuthServer=%s senderWallet=%s',
+    sendingWallet.authServer, sendingWallet.id);
+  let quoteGrant: Awaited<ReturnType<typeof client.grant.request>>;
+  try {
+    quoteGrant = await client.grant.request(
+      { url: sendingWallet.authServer },
+      {
+        access_token: {
+          access: [{ type: 'quote', actions: ['create', 'read'] }],
+        },
+      }
+    );
+    console.log('[op:quote-grant-request:ok] finalized=%s', isFinalizedGrant(quoteGrant));
+  } catch (err) {
+    const status = (err as any)?.status ?? (err as any)?.response?.status ?? 'unknown';
+    const body   = (err as any)?.body ?? (err as any)?.message ?? String(err);
+    console.error('[op:quote-grant-request:fail] senderAuthServer=%s HTTP=%s body=%j',
+      sendingWallet.authServer, status, body);
+    throw err;
+  }
   if (!isFinalizedGrant(quoteGrant)) {
     throw new Error('Expected non-interactive quote grant');
   }
@@ -99,6 +128,8 @@ export async function createQuoteTransaction(input: QuoteFlowInput): Promise<Quo
   // Step 5: Create quote on sender's wallet
   //   receiver = incomingPayment.id (the full incoming payment URL)
   //   FIXED_SEND → set debitAmount; FIXED_RECEIVE → omit (incomingAmount drives it)
+  console.log('[op:quote-create] senderResourceServer=%s walletId=%s incomingPaymentId=%s paymentType=%s amount=%s',
+    sendingWallet.resourceServer, sendingWallet.id, incomingPayment.id, input.paymentType, input.amount);
   const quote = fixedSend
     ? await client.quote.create(
         { url: sendingWallet.resourceServer, accessToken: quoteGrant.access_token.value },
@@ -121,6 +152,10 @@ export async function createQuoteTransaction(input: QuoteFlowInput): Promise<Quo
           method:        'ilp',
         }
       );
+
+  console.log('[op:quote-create:ok] quoteId=%s debit=%s %s receive=%s %s expiresAt=%s',
+    quote.id, quote.debitAmount.value, quote.debitAmount.assetCode,
+    quote.receiveAmount.value, quote.receiveAmount.assetCode, quote.expiresAt);
 
   // Step 6: Persist transaction
   const id  = crypto.randomUUID();

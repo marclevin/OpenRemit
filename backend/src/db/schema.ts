@@ -7,6 +7,7 @@ export const users = sqliteTable('users', {
   passwordHash: text('password_hash').notNull(),
   avatar:       text('avatar'),              // base64 data URL
   walletAddress: text('wallet_address'),     // set after signup
+  role:         text('role').notNull().default('MEMBER'), // 'ADMIN' | 'MEMBER'
   createdAt:    integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
@@ -161,3 +162,90 @@ export const postUnlocks = sqliteTable('post_unlocks', {
 
 export type PostUnlock    = typeof postUnlocks.$inferSelect;
 export type NewPostUnlock = typeof postUnlocks.$inferInsert;
+
+// ─── Fireline: Community Fire-Relief Mutual ───────────────────────────────────
+
+// A mutual group's configuration. One row per community (e.g. one church
+// congregation). Pool balance is tracked here and decremented on each POOL
+// payout so the reserve-floor check can happen without querying the wallet.
+export const groups = sqliteTable('groups', {
+  id:                     text('id').primaryKey(),
+  name:                   text('name').notNull(),
+
+  // Wallet addresses for the two source wallets
+  poolWalletAddress:      text('pool_wallet_address').notNull(),
+  backstopWalletAddress:  text('backstop_wallet_address').notNull(),
+
+  // Fixed payout per verified claim (smallest asset unit)
+  fixedPayoutAmount:      text('fixed_payout_amount').notNull(),
+  // Pool must stay above this floor; a claim that would breach it draws backstop
+  reserveFloor:           text('reserve_floor').notNull(),
+  // How many near-simultaneous claims classify an event as COVARIATE
+  covariateThreshold:     integer('covariate_threshold').notNull(),
+  // fixedPayoutAmount × max claims per event — the one number we defend in pitch
+  designCapacity:         text('design_capacity').notNull(),
+
+  // Tracked pool balance (simulated — decremented on each POOL payout)
+  poolBalance:            text('pool_balance').notNull(),
+
+  assetCode:              text('asset_code').notNull(),
+  assetScale:             integer('asset_scale').notNull(),
+
+  createdAt:              integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt:              integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type Group    = typeof groups.$inferSelect;
+export type NewGroup = typeof groups.$inferInsert;
+
+// One fire event (one fire incident at a location). Multiple claims can share
+// an event (e.g. several households hit in the same blaze). Classification is
+// set/re-checked each time a claim is filed or triggered.
+export const fireEvents = sqliteTable('fire_events', {
+  id:             text('id').primaryKey(),
+  groupId:        text('group_id').notNull().references(() => groups.id),
+  location:       text('location').notNull(),
+  occurredAt:     integer('occurred_at', { mode: 'timestamp' }).notNull(),
+  reportedAt:     integer('reported_at', { mode: 'timestamp' }).notNull(),
+  // SINGLE: within normal pool capacity | COVARIATE: threshold breached → backstop
+  classification: text('classification').notNull(),
+  claimCount:     integer('claim_count').notNull().default(0),
+  createdAt:      integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt:      integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type FireEvent    = typeof fireEvents.$inferSelect;
+export type NewFireEvent = typeof fireEvents.$inferInsert;
+
+// One household's relief claim against a group for an event.
+// Status: PENDING → VERIFIED → PAID | REJECTED
+// The claimant wallet is bound at enrolment (verified via the community);
+// payout only ever goes to this wallet.
+export const claims = sqliteTable('claims', {
+  id:             text('id').primaryKey(),
+  groupId:        text('group_id').notNull().references(() => groups.id),
+  eventId:        text('event_id').notNull().references(() => fireEvents.id),
+
+  // Enrolment-bound wallet address for this household — payout destination
+  claimantWallet: text('claimant_wallet').notNull(),
+
+  // Who filed this claim (may be the affected household or a community member on their behalf)
+  filedByUserId:  text('filed_by_user_id').references(() => users.id),
+
+  // PENDING | VERIFIED | PAID | REJECTED
+  status:         text('status').notNull(),
+
+  // Set at payout time
+  payoutAmount:   text('payout_amount'),
+  // POOL | BACKSTOP — which source wallet funded this payout
+  payoutSource:   text('payout_source'),
+
+  // The transactions row created for this payout
+  transactionId:  text('transaction_id').references(() => transactions.id),
+
+  createdAt:      integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt:      integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type Claim    = typeof claims.$inferSelect;
+export type NewClaim = typeof claims.$inferInsert;

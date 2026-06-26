@@ -83,6 +83,7 @@ export interface User {
   email:         string;
   avatar:        string | null;
   walletAddress: string | null;
+  role:          'ADMIN' | 'MEMBER';
 }
 
 export interface UserSearchResult {
@@ -163,6 +164,64 @@ export interface NewsPost {
     amountSent:      { value: string; assetCode: string; assetScale: number };
     incomingPayment: string | null;
   } | null;
+}
+
+// ─── Fireline Claims ──────────────────────────────────────────────────────────
+
+export interface Group {
+  id:                    string;
+  name:                  string;
+  poolWalletAddress:     string;
+  backstopWalletAddress: string;
+  fixedPayoutAmount:     string;
+  reserveFloor:          string;
+  covariateThreshold:    number;
+  designCapacity:        string;
+  poolBalance:           string;
+  assetCode:             string;
+  assetScale:            number;
+  createdAt:             string;
+  updatedAt:             string;
+}
+
+export interface FireEvent {
+  id:             string;
+  groupId:        string;
+  location:       string;
+  occurredAt:     string;
+  reportedAt:     string;
+  classification: 'SINGLE' | 'COVARIATE';
+  claimCount:     number;
+  createdAt:      string;
+  updatedAt:      string;
+}
+
+export interface Claim {
+  id:             string;
+  groupId:        string;
+  eventId:        string;
+  claimantWallet: string;
+  filedByUserId:  string | null;
+  status:         'PENDING' | 'VERIFIED' | 'PAID' | 'REJECTED';
+  payoutAmount:   string | null;
+  payoutSource:   'POOL' | 'BACKSTOP' | null;
+  transactionId:  string | null;
+  createdAt:      string;
+  updatedAt:      string;
+  event:          FireEvent | null;
+}
+
+export interface PayoutResponse {
+  claimId:       string;
+  transactionId: string;
+  payoutSource:  'POOL' | 'BACKSTOP';
+  classification: 'SINGLE' | 'COVARIATE';
+  interactUrl:   string;
+  quote: {
+    debitAmount:   { value: string; assetCode: string; assetScale: number };
+    receiveAmount: { value: string; assetCode: string; assetScale: number };
+    expiresAt?:    string;
+  };
 }
 
 export interface PublicProfile {
@@ -274,4 +333,16 @@ export const api = {
     post<{ interactUrl: string }>('/api/remit/consent', { transactionId }, true),
   status:  (id: string) => get<Transaction>(`/api/remit/status/${id}`),
   history: () => get<HistoryEntry[]>('/api/remit/history', true),
+
+  claims: {
+    groups:  () => get<Group[]>('/api/claims/groups', true),
+    list:    (groupId?: string) =>
+      get<Claim[]>(groupId ? `/api/claims?groupId=${encodeURIComponent(groupId)}` : '/api/claims', true),
+    get:     (id: string) => get<Claim>(`/api/claims/${encodeURIComponent(id)}`, true),
+    file:    (body: { groupId: string; location: string; occurredAt: string; claimantWallet: string }) =>
+      post<Claim>('/api/claims', body, true),
+    verify:  (id: string) => patch<Claim>(`/api/claims/${encodeURIComponent(id)}/verify`, {}),
+    reject:  (id: string) => patch<Claim>(`/api/claims/${encodeURIComponent(id)}/reject`, {}),
+    payout:  (id: string) => post<PayoutResponse>(`/api/claims/${encodeURIComponent(id)}/payout`, {}, true),
+  },
 };
