@@ -43,7 +43,7 @@ export function renderSignupView(container: HTMLElement): void {
         password:     data.get('password')    as string,
       });
       setToken(result.token);
-      window.location.hash = '#/remit';
+      window.location.hash = '#/claims';
     } catch (err: unknown) {
       const msg          = err instanceof Error ? err.message : String(err);
       errDiv.textContent = msg;

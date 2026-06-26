@@ -93,6 +93,24 @@ body {
   background:   var(--color-primary);
 }
 
+/* Pending-claims badge in nav */
+.nav-badge {
+  display:          inline-flex;
+  align-items:      center;
+  justify-content:  center;
+  min-width:        18px;
+  height:           18px;
+  padding:          0 5px;
+  border-radius:    9px;
+  background:       var(--color-primary);
+  color:            #fff;
+  font-size:        .7rem;
+  font-weight:      700;
+  line-height:      1;
+  margin-left:      4px;
+  vertical-align:   middle;
+}
+
 /* ─── App container ──────────────────────────────────────── */
 #app {
   width:     100%;

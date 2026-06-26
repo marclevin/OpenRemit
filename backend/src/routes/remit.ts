@@ -4,7 +4,7 @@ import { eq, ne, and, desc } from 'drizzle-orm';
 import { isPendingGrant } from '@interledger/open-payments';
 import { db } from '../db';
 import { transactions, users } from '../db/schema';
-import { getClient, normaliseWalletAddress } from '../lib/openPayments';
+import { getClient, getClientForSource, normaliseWalletAddress } from '../lib/openPayments';
 import { createQuoteTransaction } from '../lib/quoteFlow';
 import { config } from '../config';
 import { requireAuth } from '../middleware/requireAuth';
@@ -89,7 +89,13 @@ remitRouter.post('/consent', requireAuth, async (req, res, next) => {
     }
     if (tx.status !== 'PENDING') return res.status(400).json({ error: `Transaction is ${tx.status}, expected PENDING` });
 
-    const client        = await getClient();
+    // Use the same client that will continue the grant in /callback.
+    // GNAP binds a grant to the signing key used at request time — mismatching
+    // keys between request and continuation returns 403 Forbidden.
+    const isBackstopPayout =
+      !!config.backstop.walletAddress &&
+      tx.senderWalletAddress === config.backstop.walletAddress;
+    const client        = isBackstopPayout ? await getClientForSource('BACKSTOP') : await getClient();
     const sendingWallet = await client.walletAddress.get({ url: tx.senderWalletAddress });
 
     // The nonce is required by the GNAP spec for the interact.finish hash. We store it
@@ -97,39 +103,55 @@ remitRouter.post('/consent', requireAuth, async (req, res, next) => {
     const nonce       = crypto.randomUUID();
     const callbackUrl = `${config.backendUrl}/api/callback?transactionId=${transactionId}`;
 
-    const outgoingGrant = await client.grant.request(
-      { url: sendingWallet.authServer },
-      {
-        access_token: {
-          access: [
-            {
-              type:       'outgoing-payment',
-              actions:    ['create', 'read'],
-              identifier: sendingWallet.id,
-              limits: {
-                debitAmount: {
-                  value:      tx.debitAmount!,
-                  assetCode:  tx.assetCode,
-                  assetScale: tx.assetScale,
+    console.log('[op:outgoing-grant-request] txId=%s isBackstop=%s walletId=%s authServer=%s debitAmount=%s %s/%s',
+      transactionId, isBackstopPayout, sendingWallet.id, sendingWallet.authServer,
+      tx.debitAmount, tx.assetCode, tx.assetScale);
+
+    let outgoingGrant: Awaited<ReturnType<typeof client.grant.request>>;
+    try {
+      outgoingGrant = await client.grant.request(
+        { url: sendingWallet.authServer },
+        {
+          access_token: {
+            access: [
+              {
+                type:       'outgoing-payment',
+                actions:    ['create', 'read'],
+                identifier: sendingWallet.id,
+                limits: {
+                  debitAmount: {
+                    value:      tx.debitAmount!,
+                    assetCode:  tx.assetCode,
+                    assetScale: tx.assetScale,
+                  },
+                  // To enable recurring payments, add an ISO 8601 interval here:
+                  // interval: 'R/2024-01-01T00:00:00Z/P1M'
                 },
-                // To enable recurring payments, add an ISO 8601 interval here:
-                // interval: 'R/2024-01-01T00:00:00Z/P1M'
               },
-            },
-          ],
-        },
-        interact: {
-          start: ['redirect'],
-          finish: {
-            method: 'redirect',
-            uri:    callbackUrl,
-            nonce,
+            ],
           },
-        },
-      }
-    );
+          interact: {
+            start: ['redirect'],
+            finish: {
+              method: 'redirect',
+              uri:    callbackUrl,
+              nonce,
+            },
+          },
+        }
+      );
+      console.log('[op:outgoing-grant-request:ok] txId=%s continueUri=%s interactUrl=%s',
+        transactionId, (outgoingGrant as any).continue?.uri, (outgoingGrant as any).interact?.redirect);
+    } catch (grantErr) {
+      const status      = (grantErr as any)?.status      ?? 'unknown';
+      const description = (grantErr as any)?.description ?? (grantErr as any)?.message ?? String(grantErr);
+      console.error('[op:outgoing-grant-request:fail] txId=%s isBackstop=%s authServer=%s HTTP=%s body=%j',
+        transactionId, isBackstopPayout, sendingWallet.authServer, status, description);
+      throw grantErr;
+    }
 
     if (!isPendingGrant(outgoingGrant) || !outgoingGrant.interact?.redirect) {
+      console.error('[op:outgoing-grant-request:unexpected] txId=%s grant=%j', transactionId, outgoingGrant);
       throw new Error('Expected interactive outgoing-payment grant with interact.redirect');
     }
 
@@ -144,6 +166,8 @@ remitRouter.post('/consent', requireAuth, async (req, res, next) => {
       })
       .where(eq(transactions.id, transactionId));
 
+    console.log('[op:consent:stored] txId=%s status=AWAITING_GRANT interactUrl=%s',
+      transactionId, outgoingGrant.interact.redirect);
     res.json({ interactUrl: outgoingGrant.interact.redirect });
   } catch (err) {
     next(err);
