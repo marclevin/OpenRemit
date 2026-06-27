@@ -3,18 +3,27 @@
    Change --color-primary to rebrand the whole UI.
    ═══════════════════════════════════════════════════════════ */
 :root {
-  --color-primary:        #F56523;                    /* warm orange accent */
-  --color-primary-hover:  #D94F15;                    /* deep orange hover  */
-  --color-primary-tint:   rgba(245, 101, 35, 0.10);   /* soft surface wash  */
-  --color-primary-border: rgba(245, 101, 35, 0.16);   /* card / ring border */
-  --color-bg:             #0f172a;                    /* dark navy background */
-  --color-surface:        #1e293b;                    /* card / input background */
-  --color-border:         #2e3d52;                    /* subtle borders */
-  --color-text:           #f1f5f9;                    /* primary text */
-  --color-muted:          #94a3b8;                    /* secondary / hint text */
-  --color-success:        #16a34a;                    /* softer green */
-  --color-danger:         #ef4444;
-  --radius:               0.5rem;
+  /* ── Fireline ember palette ───────────────────────────────
+     The five brand colours. Everything else derives from these. */
+  --ember-black:  #210100;   /* deep charred background        */
+  --ember-red:    #8C0902;   /* deep fire red — glows/gradients */
+  --ember-rust:   #B14A36;   /* terracotta — danger / warnings  */
+  --ember-gold:   #E6A341;   /* amber gold — primary accent     */
+  --ember-light:  #FECE79;   /* warm cream gold — highlights    */
+
+  --color-primary:        var(--ember-gold);            /* primary accent     */
+  --color-primary-hover:  var(--ember-light);           /* brighter on hover  */
+  --color-primary-tint:   rgba(230, 163, 65, 0.12);     /* soft surface wash  */
+  --color-primary-border: rgba(230, 163, 65, 0.22);     /* card / ring border */
+  --color-on-primary:     #1A0100;                      /* dark text on gold  */
+  --color-bg:             var(--ember-black);            /* page background    */
+  --color-surface:        #310F09;                       /* card surface       */
+  --color-border:         #50261B;                       /* warm subtle border */
+  --color-text:           #FBEEDB;                        /* warm near-white    */
+  --color-muted:          #C7A079;                        /* warm tan secondary */
+  --color-success:        #6BB073;                        /* earthy sage = safe */
+  --color-danger:         var(--ember-rust);
+  --radius:               0.625rem;
   --font-sans:            'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -61,9 +70,11 @@ body {
 
 /* ─── Nav ────────────────────────────────────────────────── */
 .main-nav {
-  display:    flex;
-  align-items: center;
-  gap:         0.25rem;
+  display:         flex;
+  align-items:     center;
+  justify-content: flex-end;
+  flex-wrap:       wrap;
+  gap:             0.25rem;
 }
 
 .nav-link {
@@ -91,6 +102,24 @@ body {
   height:       4px;
   border-radius: 50%;
   background:   var(--color-primary);
+}
+
+/* Pending-claims badge in nav */
+.nav-badge {
+  display:          inline-flex;
+  align-items:      center;
+  justify-content:  center;
+  min-width:        18px;
+  height:           18px;
+  padding:          0 5px;
+  border-radius:    9px;
+  background:       var(--color-primary);
+  color:            var(--color-on-primary);
+  font-size:        .7rem;
+  font-weight:      700;
+  line-height:      1;
+  margin-left:      4px;
+  vertical-align:   middle;
 }
 
 /* ─── App container ──────────────────────────────────────── */
@@ -128,26 +157,51 @@ body {
   color:       var(--color-muted);
 }
 
-.input {
-  background:    var(--color-bg);
+/* The claims/report forms use `.form-group` + bare inputs; share one look. */
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+.form-group > label {
+  font-size:   0.875rem;
+  font-weight: 500;
+  color:       var(--color-muted);
+}
+
+.input,
+.form-group input:not([type="radio"]):not([type="checkbox"]),
+.form-group select,
+.form-group textarea {
+  background:    color-mix(in srgb, var(--color-bg) 55%, #000);
   border:        1px solid var(--color-border);
   border-radius: var(--radius);
   color:         var(--color-text);
   font-family:   var(--font-sans);
   font-size:     0.9375rem;
-  padding:       0.625rem 0.875rem;
+  padding:       0.7rem 0.9rem;
   width:         100%;
   outline:       none;
-  transition:    border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  transition:    border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
   -moz-appearance: textfield;
 }
 .input::-webkit-inner-spin-button,
 .input::-webkit-outer-spin-button { -webkit-appearance: none; }
-.input:focus {
+
+.input:hover:not(:focus):not(:disabled):not([readonly]),
+.form-group input:hover:not(:focus),
+.form-group select:hover:not(:focus),
+.form-group textarea:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+}
+
+.input:focus,
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
   border-color: var(--color-primary);
+  background:   var(--color-surface);
   box-shadow:   0 0 0 3px var(--color-primary-tint);
 }
-.input::placeholder { color: var(--color-muted); }
+.input::placeholder,
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: color-mix(in srgb, var(--color-muted) 70%, transparent); }
 
 /* Read-only / locked fields (e.g. your own payment pointer — it's set in Profile,
    not here). Make it visibly un-editable rather than a normal-looking input. */
@@ -193,7 +247,7 @@ body {
 select.input {
   cursor:           pointer;
   appearance:       none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23C7A079' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat:   no-repeat;
   background-position: right 0.875rem center;
   padding-right:       2.5rem;
@@ -253,7 +307,7 @@ select.input {
 .btn-primary,
 .btn-africa-primary {
   background:  var(--color-primary);
-  color:       #fff;
+  color:       var(--color-on-primary);
   font-weight: 600;
 }
 .btn-primary { width: 100%; }
@@ -1504,3 +1558,415 @@ details[open] > .tx-details-toggle::before { transform: rotate(90deg); }
 @media (max-width: 560px) {
   .wm-banner { flex-direction: column; text-align: center; }
 }
+
+/* ─── Pool "homes covered" visualization ─────────────────────
+   Shows how many homes the relief pool can rebuild right now —
+   each icon is a home; gold = funded, outline = design capacity. */
+.houses-viz {
+  position:       relative;
+  overflow:       hidden;
+  display:        flex;
+  flex-direction: column;
+  gap:            0.9rem;
+  padding:        1.1rem 1.15rem;
+  border-radius:  var(--radius);
+  border:         1px solid var(--color-primary-border);
+  transition:     background 0.7s ease, box-shadow 0.5s ease;
+}
+.houses-viz > * { position: relative; z-index: 1; }
+
+/* ── Resilience weather: the sky behind the village reflects pool health ── */
+.houses-viz.weather-calm {
+  background:
+    radial-gradient(120% 150% at 50% 0%, color-mix(in srgb, var(--ember-gold) 16%, transparent) 0%, transparent 58%),
+    color-mix(in srgb, var(--color-bg) 55%, #000);
+}
+.houses-viz.weather-strained {
+  background:
+    radial-gradient(120% 150% at 50% 0%, color-mix(in srgb, var(--ember-rust) 24%, transparent) 0%, transparent 62%),
+    color-mix(in srgb, var(--color-bg) 52%, #000);
+}
+.houses-viz.weather-critical {
+  background:
+    radial-gradient(130% 150% at 50% 0%, color-mix(in srgb, var(--ember-red) 36%, transparent) 0%, transparent 66%),
+    color-mix(in srgb, var(--color-bg) 42%, #000);
+}
+
+/* ── Covariate firestorm: the whole village pulses red, backstop rains down ── */
+.houses-viz.is-covariate { animation: covariatePulse 1.7s ease-in-out infinite; }
+@keyframes covariatePulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
+  50%      { box-shadow: inset 0 0 44px color-mix(in srgb, var(--ember-red) 48%, transparent); }
+}
+.downpour { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.downpour .rain {
+  position: absolute; top: -22%; width: 2px; height: 20%;
+  background: linear-gradient(transparent, color-mix(in srgb, #BFE3FF 75%, transparent));
+  opacity: 0.55; border-radius: 2px;
+  animation: rainFall 0.9s linear infinite;
+}
+@keyframes rainFall {
+  from { transform: translateY(-22%) translateX(10px); }
+  to   { transform: translateY(140%)  translateX(-10px); }
+}
+.covariate-flag {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  background: color-mix(in srgb, var(--ember-red) 32%, #000);
+  color: var(--ember-light); font-size: 0.68rem; font-weight: 700;
+  padding: 0.2rem 0.55rem; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ember-rust) 55%, transparent);
+  animation: covFlag 1.7s ease-in-out infinite;
+}
+@keyframes covFlag { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+/* ── Debit-run rain: gold coins fall into the pool, roofs brighten ── */
+.coin-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.coin-layer .coin {
+  position: absolute; top: -8%; width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--ember-light), var(--ember-gold) 68%, #B9802A);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ember-gold) 70%, transparent);
+  animation: coinFall 1.3s cubic-bezier(0.4, 0.1, 0.7, 1) forwards;
+}
+@keyframes coinFall {
+  0%   { opacity: 0;   transform: translateY(-8%)   rotate(0deg)   scale(0.85); }
+  12%  { opacity: 1; }
+  100% { opacity: 0;   transform: translateY(420%)  rotate(240deg) scale(1); }
+}
+.houses-viz.coin-rain .houses-grid { animation: roofBrighten 1.5s ease-out; }
+@keyframes roofBrighten {
+  0%, 100% { filter: none; }
+  35%      { filter: brightness(1.5) drop-shadow(0 0 6px color-mix(in srgb, var(--ember-gold) 55%, transparent)); }
+}
+
+/* ── Payout money-shot: coins stream from the source tranche to a rebuilt home ── */
+.moneyshot { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.ms-label {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 0.7rem; font-weight: 700; color: var(--ember-light);
+  background: color-mix(in srgb, var(--color-bg) 70%, #000);
+  padding: 0.15rem 0.5rem; border-radius: 999px;
+  border: 1px solid var(--color-primary-border);
+  animation: msLabel 2.2s ease-out forwards;
+}
+@keyframes msLabel {
+  0%   { opacity: 0; transform: translateY(-50%) scale(0.8); }
+  15%  { opacity: 1; transform: translateY(-50%) scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* Coins travel from the source edge to the rebuilt home's measured centre
+   (--ms-tx / --ms-ty, set in JS; falls back to a generic spot on the right). */
+.moneyshot { --ms-tx: 86%; --ms-ty: 50%; }
+.ms-coin {
+  position: absolute; left: 8%; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--ember-light), var(--ember-gold) 68%, #B9802A);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--ember-gold) 70%, transparent);
+  opacity: 0; transform: translate(-50%, -50%) scale(0.6);
+  animation: msCoin 1.4s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+@keyframes msCoin {
+  0%   { opacity: 0; left: 8%; top: 50%; transform: translate(-50%, -50%) scale(0.6); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; left: var(--ms-tx); top: var(--ms-ty); transform: translate(-50%, -50%) scale(1); }
+}
+.ms-burst {
+  position: absolute; left: var(--ms-tx); top: var(--ms-ty); width: 24px; height: 24px; border-radius: 50%;
+  background: radial-gradient(circle, var(--ember-light), transparent 70%);
+  opacity: 0; transform: translate(-50%, -50%) scale(0);
+  animation: msBurst 0.7s ease-out 1.25s forwards;
+}
+@keyframes msBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  40%  { opacity: 1; transform: translate(-50%, -50%) scale(1.6); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+}
+/* The rebuilt home pops + glows just as the coins arrive (~1.25s). */
+.house.is-rebuilding { animation: rebuildGlow 1.9s ease-out both; z-index: 1; }
+@keyframes rebuildGlow {
+  0%, 58% { filter: none; transform: none; }
+  72%     { filter: brightness(1.7) drop-shadow(0 0 9px var(--ember-gold)); transform: scale(1.28); }
+  100%    { filter: none; transform: scale(1); }
+}
+.houses-viz.payout-shot { animation: payoutShimmer 1.6s ease-out; }
+@keyframes payoutShimmer {
+  0%, 100% { filter: none; }
+  40%      { filter: brightness(1.3) drop-shadow(0 0 8px color-mix(in srgb, var(--ember-gold) 45%, transparent)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .houses-viz.is-covariate { animation: none; }
+  .downpour, .coin-layer, .moneyshot { display: none; }
+  .houses-viz.coin-rain .houses-grid { animation: none; }
+  .houses-viz.payout-shot { animation: none; }
+}
+
+/* ── Pending-claims carousel ─────────────────────────────────── */
+.claims-carousel { gap: 0.85rem; }
+.carousel-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.report-link {
+  font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  color: var(--color-primary); text-decoration: none;
+  transition: color 0.2s ease;
+}
+.report-link:hover { color: var(--color-primary-hover); }
+
+.carousel-viewport { overflow: hidden; border-radius: var(--radius); cursor: pointer; }
+.carousel-track { display: flex; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.carousel-slide {
+  flex: 0 0 100%;
+  display: flex; align-items: center; gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  background: color-mix(in srgb, var(--color-bg) 55%, #000);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.cs-icon {
+  font-size: 1.9rem; line-height: 1; flex-shrink: 0;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ember-rust) 55%, transparent));
+}
+.cs-body { min-width: 0; }
+.cs-name { font-weight: 700; font-size: 1rem; color: var(--color-text); }
+.cs-addr { font-size: 0.85rem; color: var(--color-muted); margin: 0.1rem 0 0.4rem; word-break: break-word; }
+.cs-meta { font-size: 0.78rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+
+.carousel-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.carousel-controls { display: flex; align-items: center; gap: 0.5rem; }
+.carousel-arrow {
+  width: 26px; height: 26px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 70%, #000);
+  color: var(--color-text); font-size: 1.1rem; line-height: 1; padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.carousel-arrow:hover { background: var(--color-primary-tint); border-color: var(--color-primary); }
+.carousel-dots { display: flex; gap: 0.4rem; align-items: center; }
+.carousel-dot {
+  width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  background: var(--color-border); transition: background 0.2s ease, transform 0.2s ease;
+}
+.carousel-dot.active { background: var(--ember-gold); transform: scale(1.35); }
+
+/* Claim action buttons (Verify / Reject / Trigger Payout) — inline row with
+   even spacing. Overrides .btn-primary's full width so they sit side by side. */
+.claim-actions {
+  display: flex; justify-content: flex-end; flex-wrap: wrap;
+  gap: 0.5rem; margin-top: 0.5rem;
+}
+.claim-actions .btn { width: auto; }
+
+/* ── Two-layer tranche reservoir ─────────────────────────────── */
+.reservoir { display: flex; gap: 1.1rem; align-items: stretch; }
+.tank {
+  position: relative; width: 84px; min-height: 184px; flex-shrink: 0;
+  border: 1px solid var(--color-border); border-radius: 10px;
+  background: color-mix(in srgb, var(--color-bg) 60%, #000);
+  overflow: hidden;
+}
+.tank-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ember-light) 65%, var(--ember-gold)),
+    var(--ember-gold) 55%,
+    color-mix(in srgb, var(--ember-gold) 70%, var(--ember-rust)));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--ember-gold) 45%, transparent);
+  transition: height 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tank-fill::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+  background: color-mix(in srgb, var(--ember-light) 85%, transparent);
+  opacity: 0.75;
+}
+.tank-floor {
+  position: absolute; left: 0; right: 0; height: 0;
+  border-top: 2px dashed var(--ember-rust);
+}
+.tank-floor span {
+  position: absolute; right: 3px; top: -0.95rem;
+  font-size: 0.58rem; color: var(--ember-rust); font-weight: 600;
+}
+.tank-cap-label {
+  position: absolute; top: 4px; left: 0; right: 0; text-align: center;
+  font-size: 0.58rem; color: var(--color-muted); z-index: 1;
+}
+.reservoir-legend {
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 0.55rem; font-size: 0.85rem; flex: 1;
+}
+.rl-row { display: flex; align-items: center; gap: 0.55rem; }
+.rl-row strong { margin-left: auto; white-space: nowrap; }
+.rl-dot { width: 0.75rem; height: 0.75rem; border-radius: 3px; flex-shrink: 0; }
+.rl-dot.pool { background: var(--ember-gold); }
+.rl-dot.head { background: color-mix(in srgb, var(--ember-gold) 40%, transparent); }
+.rl-dot.floor { background: transparent; border-top: 2px dashed var(--ember-rust); border-radius: 0; height: 0; }
+.rl-dot.cap  { background: var(--color-border); }
+
+.backstop-band {
+  margin-top: 1rem; padding: 0.7rem 0.9rem; border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 60%, #000);
+  display: flex; flex-direction: column; gap: 0.2rem;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+.backstop-band strong { font-size: 0.9rem; }
+.backstop-band.engaged {
+  border-color: color-mix(in srgb, var(--ember-red) 55%, transparent);
+  background: color-mix(in srgb, var(--ember-red) 16%, #000);
+  animation: backstopGlow 1.8s ease-in-out infinite;
+}
+@keyframes backstopGlow {
+  0%, 100% { box-shadow: 0 0 12px color-mix(in srgb, var(--ember-red) 20%, transparent); }
+  50%      { box-shadow: 0 0 22px color-mix(in srgb, var(--ember-red) 42%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tank-fill { transition: none; }
+  .backstop-band.engaged { animation: none; }
+}
+
+.houses-headline { display: flex; align-items: baseline; gap: 0.55rem; flex-wrap: wrap; }
+.houses-count {
+  font-size:      2.6rem;
+  font-weight:    700;
+  line-height:    1;
+  letter-spacing: -0.03em;
+  background:     linear-gradient(135deg, var(--ember-light), var(--ember-gold) 55%, var(--ember-rust));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color:          transparent;
+}
+.houses-label { font-size: 0.9rem; color: var(--color-muted); line-height: 1.3; }
+
+.houses-grid {
+  display:               grid;
+  grid-template-columns: repeat(auto-fill, minmax(26px, 1fr));
+  gap:                   7px;
+}
+/* Each house is a member household. State = colour + effect:
+   protected (gold), bare (member but uncovered), ghost (potential), fire (claim). */
+.house {
+  position:     relative;
+  width:        100%;
+  aspect-ratio: 1 / 1;
+  color:        var(--color-border);
+  animation:    villageSettle 0.45s ease-out both;
+}
+.house svg { width: 100%; height: 100%; display: block; }
+@keyframes villageSettle {
+  from { opacity: 0; transform: translateY(5px) scale(0.88); }
+  to   { opacity: 1; transform: none; }
+}
+
+.house.is-protected {
+  color:  var(--ember-gold);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ember-gold) 55%, transparent));
+}
+.house.is-bare  { color: color-mix(in srgb, var(--color-muted) 42%, var(--color-border)); }
+.house.is-ghost { color: var(--color-border); opacity: 0.45; }
+
+/* The signed-in user's own home — ringed so they can find it in the village. */
+.house.is-you { color: var(--ember-light); }
+.house.is-you::before {
+  content: ''; position: absolute; inset: -3px;
+  border: 1.5px solid var(--ember-gold); border-radius: 5px;
+  animation: youPulse 2s ease-in-out infinite; pointer-events: none;
+}
+@keyframes youPulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.85; } }
+
+/* A newly enrolled member's home falls into the village with a bounce + dust. */
+.house.is-dropin { animation: houseDrop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; z-index: 2; }
+@keyframes houseDrop {
+  0%   { opacity: 0; transform: translateY(-130%) scale(1.18); }
+  55%  { opacity: 1; transform: translateY(9%)    scale(0.95); }
+  74%  { transform: translateY(-5%) scale(1.03); }
+  88%  { transform: translateY(2%)  scale(0.99); }
+  100% { transform: translateY(0)   scale(1); }
+}
+.house.is-dropin::after {
+  content: ''; position: absolute; left: 50%; bottom: -3px;
+  width: 85%; height: 32%; transform: translateX(-50%) scaleX(0.2); border-radius: 50%;
+  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--ember-light) 70%, transparent), transparent 70%);
+  opacity: 0; animation: dustPuff 0.9s ease-out 0.46s both; pointer-events: none;
+}
+@keyframes dustPuff {
+  0%   { opacity: 0;   transform: translateX(-50%) scaleX(0.2); }
+  40%  { opacity: 0.8; transform: translateX(-50%) scaleX(1.1); }
+  100% { opacity: 0;   transform: translateX(-50%) scaleX(1.6); }
+}
+
+/* A house with an open claim is on fire. */
+.house.is-fire { color: var(--ember-rust); }
+.house.is-fire .flame {
+  position: absolute; left: 50%; top: -8%; width: 44%; height: 58%;
+  background: radial-gradient(ellipse at 50% 80%,
+    #FFE08A 0%, var(--ember-gold) 26%, var(--ember-rust) 58%, var(--ember-red) 84%, transparent 95%);
+  border-radius: 50% 50% 48% 48% / 64% 64% 36% 36%;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ember-gold) 70%, transparent));
+  transform: translateX(-50%); transform-origin: 50% 100%; pointer-events: none;
+  animation: flameFlicker 0.28s ease-in-out infinite alternate, flameIgnite 0.5s ease-out both;
+}
+@keyframes flameFlicker {
+  from { transform: translateX(-50%) scale(1)    rotate(-3deg); opacity: 0.9; }
+  to   { transform: translateX(-52%) scale(1.09) rotate(3deg);  opacity: 1; }
+}
+/* Ignite reveals the flame from the base — uses clip-path so it never fights the
+   flicker animation for the transform/opacity properties. */
+@keyframes flameIgnite { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+.house.is-fire .ember {
+  position: absolute; bottom: 42%; left: 50%; width: 9%; height: 9%; border-radius: 50%;
+  background: var(--ember-light); opacity: 0; pointer-events: none;
+  animation: emberRise 1.5s ease-out infinite;
+}
+.house.is-fire .ember:nth-of-type(3) { left: 40%; animation-delay: 0.5s; }
+.house.is-fire .ember:nth-of-type(4) { left: 60%; animation-delay: 0.95s; }
+@keyframes emberRise {
+  0%   { opacity: 0;   transform: translate(-50%, 0)     scale(1); }
+  20%  { opacity: 1; }
+  100% { opacity: 0;   transform: translate(-50%, -170%) scale(0.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house, .house.is-dropin, .house.is-fire .flame, .house.is-fire .ember { animation: none !important; }
+  .house.is-dropin::after { display: none; }
+}
+
+.houses-legend {
+  display:     flex;
+  flex-wrap:   wrap;
+  gap:         0.4rem 1.1rem;
+  align-items: center;
+  font-size:   0.8rem;
+  color:       var(--color-muted);
+}
+.houses-legend .dot {
+  display:        inline-block;
+  width:          0.72rem;
+  height:         0.72rem;
+  border-radius:  3px;
+  margin-right:   0.35rem;
+  vertical-align: -1px;
+}
+.houses-legend .dot.filled { background: var(--ember-gold); }
+.houses-legend .dot.empty  { background: var(--color-border); }
+.houses-legend .dot.bare   { background: color-mix(in srgb, var(--color-muted) 42%, var(--color-border)); }
+.houses-legend .dot.fire   { background: var(--ember-rust); box-shadow: 0 0 5px color-mix(in srgb, var(--ember-red) 70%, transparent); }
+
+/* Responsive stat grid in the pool card */
+.pool-stats {
+  display:               grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap:                   1rem 0.5rem;
+}
+
+/* Live "+N homes covered" preview under the contribution amount field */
+.contribute-impact {
+  font-size:     0.85rem;
+  color:         var(--color-primary);
+  background:    var(--color-primary-tint);
+  border:        1px solid var(--color-primary-border);
+  border-radius: var(--radius);
+  padding:       0.55rem 0.8rem;
+  margin-bottom: 1rem;
+}
+.contribute-impact strong { color: var(--ember-light); }

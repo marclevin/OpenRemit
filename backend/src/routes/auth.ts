@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { config } from '../config';
 import { requireAuth } from '../middleware/requireAuth';
 import { normaliseWalletAddress } from '../lib/openPayments';
@@ -13,9 +13,9 @@ export const authRouter = Router();
 
 const MAX_AVATAR_BYTES = 200 * 1024; // 200 KB base64 limit
 
-function signToken(user: { id: string; email: string; displayName: string }): string {
+function signToken(user: { id: string; email: string; displayName: string; role: string }): string {
   return jwt.sign(
-    { id: user.id, email: user.email, displayName: user.displayName },
+    { id: user.id, email: user.email, displayName: user.displayName, role: user.role },
     config.jwtSecret,
     { expiresIn: '7d' }
   );
@@ -45,16 +45,21 @@ authRouter.post('/signup', async (req, res, next) => {
     const id = crypto.randomUUID();
     const now = new Date();
 
+    // First registered user becomes ADMIN; all subsequent users are MEMBER
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(users);
+    const role = count === 0 ? 'ADMIN' : 'MEMBER';
+
     await db.insert(users).values({
       id,
       displayName: displayName.trim(),
       email: email.toLowerCase(),
       passwordHash,
+      role,
       createdAt: now,
     });
 
-    const user = { id, email: email.toLowerCase(), displayName: displayName.trim() };
-    res.status(201).json({ token: signToken(user), user });
+    const user = { id, email: email.toLowerCase(), displayName: displayName.trim(), role };
+    res.status(201).json({ token: signToken(user), user: { ...user, walletAddress: null, avatar: null } });
   } catch (err) {
     next(err);
   }
@@ -82,7 +87,7 @@ authRouter.post('/login', async (req, res, next) => {
       return;
     }
 
-    const user = { id: row.id, email: row.email, displayName: row.displayName };
+    const user = { id: row.id, email: row.email, displayName: row.displayName, role: row.role ?? 'MEMBER' };
     res.json({ token: signToken(user), user: { ...user, walletAddress: row.walletAddress, avatar: row.avatar } });
   } catch (err) {
     next(err);

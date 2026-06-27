@@ -6,15 +6,14 @@ import { renderLoginView }   from './views/loginView';
 import { renderSignupView }  from './views/signupView';
 import { renderProfileView } from './views/profileView';
 import { renderHistoryView } from './views/historyView';
-import { renderQuoteView }   from './views/quoteView';
-import { renderReceiveView } from './views/receiveView';
-import { renderConsentView } from './views/consentView';
 import { renderStatusView }        from './views/statusView';
 import { renderPublicProfileView } from './views/publicProfileView';
 import { renderNewsView }          from './views/newsView';
 import { renderNewsArticleView }   from './views/newsArticleView';
 import type { UnlockOutcome }      from './views/newsArticleView';
-import type { QuoteResponse } from './api';
+import { renderClaimsView }        from './views/claimsView';
+import { renderReportFireView }    from './views/reportFireView';
+import { renderAllClaimsView }     from './views/allClaimsView';
 
 const view    = document.getElementById('view')!;
 const nav     = document.getElementById('main-nav')!;
@@ -22,8 +21,7 @@ const navLinks = nav.querySelectorAll<HTMLAnchorElement>('.nav-link');
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let pendingQuote: QuoteResponse | null = null;
-let cachedUser:   User | null          = null;
+let cachedUser: User | null = null;
 
 // ─── Nav helpers ──────────────────────────────────────────────────────────────
 
@@ -34,40 +32,35 @@ function updateNav(route: string): void {
   });
 }
 
-// ─── Remit sub-views ──────────────────────────────────────────────────────────
-
-function showConsent(): void {
-  if (!pendingQuote) { window.location.hash = '#/remit'; return; }
-  renderConsentView(view, pendingQuote, () => {
-    if (cachedUser) showRemit(cachedUser);
-  });
-}
-
-function showStatus(id: string): void {
-  renderStatusView(view, id);
-}
-
-async function showRemit(user: User): Promise<void> {
-  renderQuoteView(view, user, (res: QuoteResponse) => {
-    pendingQuote = res;
-    showConsent();
-  });
+async function updatePendingBadge(): Promise<void> {
+  const badge = document.getElementById('nav-pending-badge');
+  if (!badge || !isLoggedIn() || !cachedUser) return;
+  try {
+    const allClaims = await api.claims.list();
+    // Count PENDING claims not filed by the current user (i.e. they can verify these)
+    const verifiable = allClaims.filter(
+      (c) => c.status === 'PENDING' && c.filedByUserId !== cachedUser!.id
+    );
+    if (verifiable.length > 0) {
+      badge.textContent = String(verifiable.length);
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  } catch {
+    badge.hidden = true;
+  }
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 async function route(): Promise<void> {
-  // Leaving any view ends an active Web Monetization session (spec: removing the
-  // <link> stops the payment session). The News article view re-creates it.
   document.querySelectorAll('link[rel="monetization"]').forEach((l) => l.remove());
 
   // GNAP callback: ?id=<uuid> takes priority over hash.
-  // Strip the query string immediately so subsequent hashchange events don't re-enter this branch.
   const params   = new URLSearchParams(window.location.search);
   const returnId = params.get('id');
   if (returnId) {
-    // A News unlock carries ?post=<id>: send the reader back to that article
-    // (with the payment outcome) instead of the generic status view.
     const returnPost = params.get('post');
     if (returnPost && isLoggedIn()) {
       const outcome = params.get('status') as UnlockOutcome;
@@ -76,17 +69,25 @@ async function route(): Promise<void> {
       renderNewsArticleView(view, returnPost, outcome);
       return;
     }
-    // Use a distinct hash so any subsequent nav-link click changes the hash
-    // and triggers hashchange. Preserving the old hash (e.g. #/remit) would
-    // mean clicking "New Payment" → #/remit produces no hashchange event.
-    history.replaceState({}, '', window.location.pathname + '#/status');
-    updateNav('');
-    showStatus(returnId);
-    return;
+    // Claim payout: land back on the Relief Fund and play the money-shot,
+    // rather than the generic status view.
+    const payout = params.get('payout');
+    if (payout && isLoggedIn()) {
+      localStorage.setItem('fireline:payout', payout);
+      const paidClaim = params.get('claim');
+      if (paidClaim) localStorage.setItem('fireline:payoutClaim', paidClaim);
+      history.replaceState({}, '', window.location.pathname + '#/claims');
+      // fall through to the hash router below, which renders the Relief Fund.
+    } else {
+      history.replaceState({}, '', window.location.pathname + '#/status');
+      updateNav('');
+      renderStatusView(view, returnId);
+      return;
+    }
   }
 
   const hash  = window.location.hash || '#/';
-  const path  = hash.slice(1); // e.g. '/remit'
+  const path  = hash.slice(1);
 
   const segment = path.split('/')[1] ?? '';
   updateNav(segment);
@@ -111,8 +112,6 @@ async function route(): Promise<void> {
     return;
   }
 
-  // Fetch the user for this navigation. The cache is cleared on every
-  // hashchange (see the listener below) so profile edits show up immediately.
   if (!cachedUser) {
     try {
       cachedUser = await api.auth.me();
@@ -122,22 +121,11 @@ async function route(): Promise<void> {
     }
   }
 
-  // Sentinel set after a GNAP callback so the status view was already rendered.
-  // If the user lands here via browser back/forward without a live status view, go home.
   if (path === '/status') {
     window.location.hash = '#/';
     return;
   }
 
-  if (path === '/remit') {
-    pendingQuote = null;
-    await showRemit(cachedUser);
-    return;
-  }
-  if (path === '/receive') {
-    renderReceiveView(view, cachedUser);
-    return;
-  }
   if (path === '/news') {
     await renderNewsView(view);
     return;
@@ -149,6 +137,18 @@ async function route(): Promise<void> {
   }
   if (path === '/history') {
     await renderHistoryView(view);
+    return;
+  }
+  if (path === '/claims') {
+    await renderClaimsView(view, cachedUser);
+    return;
+  }
+  if (path === '/report') {
+    await renderReportFireView(view);
+    return;
+  }
+  if (path === '/all-claims') {
+    await renderAllClaimsView(view, cachedUser);
     return;
   }
   if (path === '/profile') {
@@ -168,8 +168,8 @@ async function route(): Promise<void> {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 window.addEventListener('hashchange', () => {
-  cachedUser = null; // re-fetch user on navigation so profile updates reflect
+  cachedUser = null;
   route();
 });
 
-route();
+route().then(() => updatePendingBadge());

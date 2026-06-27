@@ -7,8 +7,11 @@ import { authRouter } from './routes/auth';
 import { usersRouter } from './routes/users';
 import { requestsRouter } from './routes/requests';
 import { newsRouter } from './routes/news';
+import { claimsRouter } from './routes/claims';
+import { membershipsRouter } from './routes/memberships';
 import { errorHandler } from './middleware/errorHandler';
 import { seedNews } from './lib/seedNews';
+import { seedGroup } from './lib/seedGroup';
 
 const app = express();
 
@@ -26,11 +29,14 @@ app.use('/api/requests', requestsRouter);
 app.use('/api/news', newsRouter);
 app.use('/api/remit', remitRouter);
 app.use('/api/callback', callbackRouter);
+app.use('/api/claims', claimsRouter);
+app.use('/api/memberships', membershipsRouter);
 
 app.use(errorHandler);
 
-// Seed the demo News posts on first boot (idempotent — no-op if any exist).
+// Seed demo data on first boot (idempotent — no-op if rows exist).
 seedNews().catch((err) => console.error('[seed] News seed failed:', err));
+seedGroup().catch((err) => console.error('[seed] Group seed failed:', err));
 
 app.listen(config.port, () => {
   console.log(`\n  OpenRemit backend → http://localhost:${config.port}\n`);

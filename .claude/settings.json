@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npm install)",
       "Bash(npm run *)",
-      "Bash(npx drizzle-kit *)"
+      "Bash(npx drizzle-kit *)",
+      "Bash(node -e \"const{createClient}=require\\('@libsql/client'\\);\\(async\\(\\)=>{const c=createClient\\({url:'file:openremit.db'}\\);const t=await c.execute\\(\\\\\"select name from sqlite_master where type='table'\\\\\"\\);for\\(const row of t.rows\\){const cols=await c.execute\\('select * from '+row.name+' limit 0'\\);console.log\\('• '+row.name+': '+cols.columns.join\\(', '\\)\\);}}\\)\\(\\)\")",
+      "Bash(node -e \"const p=require\\('@interledger/open-payments/package.json'\\);console.log\\('version',p.version\\);console.log\\('main',p.main,'types',p.types,'module',p.module\\);console.log\\('exports',JSON.stringify\\(p.exports\\)\\)\")",
+      "Bash(node -e \"const{createClient}=require\\('@libsql/client'\\);\\(async\\(\\)=>{const c=createClient\\({url:'file:openremit.db'}\\);const r=await c.execute\\('select name from sqlite_master where type=\\\\\"table\\\\\" and name=\\\\\"memberships\\\\\"'\\);console.log\\(r.rows.length?'memberships table created':'MISSING'\\);}\\)\\(\\)\")",
+      "Bash(node -e \"const{createClient}=require\\('@libsql/client'\\);\\(async\\(\\)=>{const c=createClient\\({url:'file:openremit.db'}\\);const r=await c.execute\\(\\\\\"select name from sqlite_master where type='table' and name='memberships'\\\\\"\\);console.log\\(r.rows.length?'✅ memberships table created':'❌ MISSING'\\);const cols=await c.execute\\('select * from memberships limit 0'\\);console.log\\('columns:', cols.columns.join\\(', '\\)\\);}\\)\\(\\)\")",
+      "Bash(node -e \"const{createClient}=require\\('@libsql/client'\\);\\(async\\(\\)=>{const c=createClient\\({url:'file:openremit.db'}\\);const r=await c.execute\\(\\\\\"select status, monthly_amount, interval, charges_made from memberships where user_id in \\(select id from users where email='member1@example.com'\\)\\\\\"\\);console.log\\(JSON.stringify\\(r.rows[0],null,2\\)\\);}\\)\\(\\)\")",
+      "Bash(node -e \"const{createClient}=require\\('@libsql/client'\\);\\(async\\(\\)=>{const c=createClient\\({url:'file:openremit.db'}\\);const u=await c.execute\\(\\\\\"select id from users where email='member1@example.com'\\\\\"\\);if\\(u.rows[0]\\){const id=u.rows[0].id;await c.execute\\({sql:'delete from memberships where user_id=?',args:[id]}\\);await c.execute\\({sql:'delete from transactions where user_id=?',args:[id]}\\);await c.execute\\({sql:'delete from users where id=?',args:[id]}\\);}const cu=await c.execute\\('select count\\(*\\) n from users'\\);const cm=await c.execute\\('select count\\(*\\) n from memberships'\\);console.log\\('users:',cu.rows[0].n,'memberships:',cm.rows[0].n\\);}\\)\\(\\)\")"
     ]
   }
 }
